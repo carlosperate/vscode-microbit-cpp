@@ -1,0 +1,69 @@
+{
+  "name": "bbcmicrobit-cpp",
+  "displayName": "BBC micro:bit C++",
+  "description": "Build CODAL C++ programs for the BBC micro:bit, directly in VS Code without external compilers and toolchains needed.",
+  "version": "0.1.0",
+  "publisher": "carlosperate",
+  "license": "MIT",
+  "scripts": {
+    "build": "node config/esbuild.config.mjs",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p src/node && tsc --noEmit -p test",
+    "test": "vitest run --config config/vitest.config.mts",
+    "test:watch": "vitest --config config/vitest.config.mts",
+    "serve": "npm run build && vscode-test-web --quality stable --browser=none --port=3000 --extensionDevelopmentPath=. ./test/workspace",
+    "chrome": "npm run build && vscode-test-web --quality stable --browser=chromium --extensionDevelopmentPath=. ./test/workspace",
+    "desktop": "npm run build && node config/desktop.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@types/vscode": "1.91.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/test-web": "^0.0.81",
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "browser": "./dist/browser.js",
+  "main": "./dist/node.js",
+  "extensionKind": [
+    "ui"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/carlosperate/vscode-microbit-cpp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/carlosperate/vscode-microbit-cpp/issues"
+  },
+  "homepage": "https://github.com/carlosperate/vscode-microbit-cpp#readme",
+  "categories": [
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "microbit",
+    "bbcmicrobit",
+    "bbc-microbit",
+    "cpp",
+    "c++",
+    "codal",
+    "clang",
+    "webassembly",
+    "embedded"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "bbcmicrobit-cpp.build",
+        "title": "Build",
+        "category": "BBC micro:bit C++"
+      }
+    ]
+  }
+}

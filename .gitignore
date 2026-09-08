@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vscode-test-web/
+.vscode-test/
+.playwright-mcp/
+*.vsix
+.env
+test/workspace/*.hex
+test/workspace/*.map
+test/workspace/.vscode/

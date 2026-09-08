@@ -1,0 +1,10 @@
+{
+	// Tests run in node under vitest, the extension runs in a Web Worker. Only
+	// this half gets node's types: in `src/` they would make `process`, `Buffer`
+	// and `__dirname` compile and then throw there.
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"types": ["vscode", "node"]
+	},
+	"include": ["**/*.ts"]
+}

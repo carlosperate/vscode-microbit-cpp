@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowUnreachableCode": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "lib": ["ES2020", "WebWorker"],
+    "types": ["vscode"]
+  },
+  "include": ["src/**/*.ts"],
+  // src/node is its own project (node types); nothing here imports it, so
+  // excluding it as a root keeps it out entirely.
+  "exclude": ["node_modules", "dist", "src/node"]
+}
