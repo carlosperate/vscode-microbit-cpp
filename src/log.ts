@@ -20,3 +20,12 @@ export function createLog(context: vscode.ExtensionContext): void {
 export function log(message: string): void {
 	channel?.appendLine(message);
 }
+
+/** The compiler's own text, which brings its own line breaks. */
+export function logRaw(text: string): void {
+	channel?.append(text);
+}
+
+export function showLog(): void {
+	channel?.show(true);
+}

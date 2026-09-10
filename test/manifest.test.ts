@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import manifest from '../package.json';
-import { COMMANDS, PRODUCT, SECTION } from '../src/config';
+import { COMMANDS, PRODUCT, SECTION, SETTINGS } from '../src/config';
 
 /**
  * VS Code reads the manifest and the code reads `src/config.ts`, so a command id
@@ -23,6 +23,11 @@ describe('the manifest and the code agree', () => {
 		for (const command of contributed) expect(command.command.startsWith(`${SECTION}.`)).toBe(true);
 	});
 
+	it('declares every setting the code reads, under the section', () => {
+		const declared = Object.keys(manifest.contributes.configuration.properties);
+		expect(declared.sort()).toEqual(Object.values(SETTINGS).map((key) => `${SECTION}.${key}`).sort());
+	});
+
 	it('names the product the same way in the manifest', () => {
 		expect(manifest.displayName).toBe(PRODUCT);
 	});
@@ -32,4 +37,9 @@ describe('the manifest and the code agree', () => {
 it('points both hosts at the bundles esbuild writes', () => {
 	expect(manifest.browser).toBe('./dist/browser.js');
 	expect(manifest.main).toBe('./dist/node.js');
+});
+
+/** Both packages are pinned exactly: the extension is re-released when either changes, never resolved anew. */
+it('pins both compiler packages to one version each', () => {
+	for (const spec of Object.values(manifest.dependencies)) expect(spec).not.toMatch(/^[\^~]/);
 });

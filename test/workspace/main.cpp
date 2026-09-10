@@ -4,6 +4,8 @@ MicroBit uBit;
 
 int main() {
     uBit.init();
-    uBit.display.scroll("HELLO");
-    release_fiber();
+    while (true) {
+        uBit.display.scroll("HELLO WORLD");
+        uBit.sleep(1000);
+    }
 }

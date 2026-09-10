@@ -7,12 +7,19 @@
   "license": "MIT",
   "scripts": {
     "build": "node config/esbuild.config.mjs",
+    "build:integration": "esbuild test/integration/index.ts --bundle --outfile=test/integration/dist/index.js --format=cjs --platform=browser --main-fields=module,browser,main --external:vscode --log-level=warning",
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/node && tsc --noEmit -p test",
     "test": "vitest run --config config/vitest.config.mts",
     "test:watch": "vitest --config config/vitest.config.mts",
+    "test:integration": "npm run build && npm run build:integration && vscode-test-web --quality stable --headless --extensionDevelopmentPath=. --extensionTestsPath=./test/integration/dist/index.js ./test/workspace",
+    "test:integration:desktop": "npm run build && npm run build:integration && node config/desktop.mjs --test",
     "serve": "npm run build && vscode-test-web --quality stable --browser=none --port=3000 --extensionDevelopmentPath=. ./test/workspace",
     "chrome": "npm run build && vscode-test-web --quality stable --browser=chromium --extensionDevelopmentPath=. ./test/workspace",
     "desktop": "npm run build && node config/desktop.mjs"
+  },
+  "dependencies": {
+    "microbit-clang-wasm": "21.11.0-alpha.1",
+    "microbit-clang-wasm-codal": "0.305.0-alpha.1"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
@@ -54,16 +61,37 @@
     "webassembly",
     "embedded"
   ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
   "contributes": {
     "commands": [
       {
         "command": "bbcmicrobit-cpp.build",
         "title": "Build",
         "category": "BBC micro:bit C++"
+      },
+      {
+        "command": "bbcmicrobit-cpp.createProject",
+        "title": "Create Project",
+        "category": "BBC micro:bit C++"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "BBC micro:bit C++",
+      "properties": {
+        "bbcmicrobit-cpp.build.exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/.git/**",
+            "**/node_modules/**",
+            "**/build/**",
+            "**/libraries/**"
+          ],
+          "scope": "resource",
+          "markdownDescription": "Glob patterns for files under the workspace folder that Build leaves out, on top of `#files.exclude#`. The default keeps out the `libraries` and `build` folders of a CODAL checkout, whose sources the extension already carries prebuilt."
+        }
+      }
+    }
   }
 }

@@ -1,45 +1,53 @@
 /**
- * Everything both entry points do the same way. The two hosts read the shipped
- * toolchain and reach a board by unrelated means, so the commands are the seam
- * and everything else sits above.
+ * Everything both entry points do the same way. A host differs only in how it
+ * starts the compiler worker, so that is what it supplies and the rest sits here.
  */
 import * as vscode from 'vscode';
 
-import { COMMANDS, PRODUCT, type CommandId } from './config';
+import { createBuild, type BuildRecord } from './build/build';
+import { Compiler, type CompilerWorker } from './build/compiler';
+import { COMMANDS, type CommandId } from './config';
 import { createLog, log } from './log';
-
-export type CommandHandler = (context: vscode.ExtensionContext, ...args: unknown[]) => Promise<void>;
-
-/** Which entry point ran. Handed back from `activate` because nothing else can see it. */
-export interface ExtensionApi {
-	entry: Entry;
-}
+import { createProject } from './project/create';
 
 export type Entry = 'browser' | 'node';
 
-/** What one entry point supplies, over the shared wiring below. */
 export interface Host {
 	entry: Entry;
-	commands: Partial<Record<CommandId, CommandHandler>>;
+	spawn: () => CompilerWorker;
+}
+
+/** Handed back from `activate` for the integration tests, which cannot see inside otherwise. */
+export interface ExtensionApi {
+	entry: Entry;
+	lastBuild: () => BuildRecord | undefined;
 }
 
 export function activateHost(context: vscode.ExtensionContext, host: Host): ExtensionApi {
 	createLog(context);
 	log(`Extension activated, ${host.entry} entry`);
 
-	// Manifest titles keep stub notifications in sync with the command palette.
-	const titles = contributedTitles(context);
-	for (const id of Object.values(COMMANDS)) {
-		const implementation = host.commands[id];
+	const assets = vscode.Uri.joinPath(context.extensionUri, 'dist', 'assets');
+	const compiler = new Compiler({
+		spawn: host.spawn,
+		loadAsset: (name) => {
+			log(`Loading ${name}`);
+			return vscode.workspace.fs.readFile(vscode.Uri.joinPath(assets, ...name.split('/')));
+		},
+	});
+	context.subscriptions.push({ dispose: () => compiler.dispose() });
+
+	const builds = createBuild(compiler);
+	const commands: Record<CommandId, (...args: unknown[]) => Promise<void>> = {
+		[COMMANDS.build]: () => builds.build(),
+		[COMMANDS.createProject]: createProject,
+	};
+	for (const [id, run] of Object.entries(commands)) {
 		context.subscriptions.push(
-			// Whatever a caller passes is forwarded intact, rather than dropped here.
 			vscode.commands.registerCommand(id, async (...args: unknown[]) => {
 				log(`Running ${id}`);
 				try {
-					if (implementation) return await implementation(context, ...args);
-					void vscode.window.showInformationMessage(
-						`${PRODUCT}: ${titles.get(id) ?? id} is not implemented yet.`
-					);
+					await run(...args);
 				} catch (error) {
 					// Rethrown: anything reaching here is a defect, and should stay loud.
 					log(`${id} failed: ${String(error)}`);
@@ -49,11 +57,5 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Exte
 		);
 	}
 
-	return { entry: host.entry };
-}
-
-function contributedTitles(context: vscode.ExtensionContext): Map<string, string> {
-	const contributed: { command: string; title: string }[] =
-		context.extension.packageJSON?.contributes?.commands ?? [];
-	return new Map(contributed.map((entry) => [entry.command, entry.title]));
+	return { entry: host.entry, lastBuild: builds.last };
 }
