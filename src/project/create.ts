@@ -18,7 +18,8 @@ export async function createProject(target?: unknown): Promise<void> {
 		return;
 	}
 	// A workspace folder always has a name; an Explorer-supplied URI has only a path.
-	const named = picked?.name ?? folder.path.split('/').pop() ?? folder.path;
+	// `||`, not `??`: a path ending in a slash, such as a Windows drive root, splits to an empty name.
+	const named = picked?.name || folder.path.split('/').pop() || folder.path;
 
 	const main = vscode.Uri.joinPath(folder, 'main.cpp');
 	let present: boolean;

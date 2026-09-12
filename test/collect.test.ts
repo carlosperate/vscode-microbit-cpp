@@ -39,15 +39,31 @@ describe('relativeTo', () => {
 		// A sibling whose name merely starts the same is not inside it.
 		expect(relativeTo('/w/outer', '/w/outer-two/main.cpp')).toBeNull();
 	});
+
+	it('ignores the case of a Windows drive letter, and of nothing else', () => {
+		expect(relativeTo('/D:/w/project', '/d:/w/project/src/main.cpp')).toBe('src/main.cpp');
+		expect(relativeTo('/d:/w/project', '/D:/w/project/main.cpp')).toBe('main.cpp');
+		expect(relativeTo('/D:/w/Project', '/d:/w/project/main.cpp')).toBeNull();
+	});
+
+	it('never hands back a Windows separator, which the compiler package rejects', () => {
+		expect(relativeTo('/D:/w/project', '/d:/w/project/src/util/helper.cpp')).toBe('src/util/helper.cpp');
+	});
 });
 
 describe('isInside', () => {
-	/** Whole URIs, so an untitled or a differently-schemed document is not saved as this folder's. */
+	const at = (scheme: string, authority: string, path: string) => ({ scheme, authority, path });
+
+	/** An untitled buffer or a file on another remote is not this folder's, however its path reads. */
 	it('takes the scheme and authority into account, not just the path', () => {
-		expect(isInside('file:///w/project', 'file:///w/project/main.cpp')).toBe(true);
-		expect(isInside('file:///w/project', 'untitled:/w/project/main.cpp')).toBe(false);
-		expect(isInside('vscode-test-web://mount', 'vscode-test-web://mount/main.cpp')).toBe(true);
-		expect(isInside('file:///w/project', 'file:///w/project-two/main.cpp')).toBe(false);
+		expect(isInside(at('file', '', '/w/project'), at('file', '', '/w/project/main.cpp'))).toBe(true);
+		expect(isInside(at('file', '', '/w/project'), at('untitled', '', '/w/project/main.cpp'))).toBe(false);
+		expect(isInside(at('file', 'wsl', '/w/project'), at('file', 'other', '/w/project/main.cpp'))).toBe(false);
+		expect(isInside(at('file', '', '/w/project'), at('file', '', '/w/project-two/main.cpp'))).toBe(false);
+	});
+
+	it('matches a document whose drive letter is cased differently', () => {
+		expect(isInside(at('file', '', '/D:/w/project'), at('file', '', '/d:/w/project/main.cpp'))).toBe(true);
 	});
 });
 

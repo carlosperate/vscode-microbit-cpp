@@ -165,9 +165,8 @@ function announce(folder: vscode.WorkspaceFolder, outcome: BuildOutcome): void {
  * this folder's documents, so a dirty file elsewhere in the window is left alone.
  */
 async function saveEdits(folder: vscode.WorkspaceFolder): Promise<boolean> {
-	const base = folder.uri.toString();
 	const dirty = vscode.workspace.textDocuments.filter(
-		(document) => document.isDirty && isInside(base, document.uri.toString())
+		(document) => document.isDirty && isInside(folder.uri, document.uri)
 	);
 	if (dirty.length === 0) return true;
 
@@ -215,13 +214,9 @@ async function collect(folder: vscode.WorkspaceFolder): Promise<Files | null> {
 		return null;
 	}
 
-	// Sorted by name because `findFiles` does not promise an order, and the recipe numbers the
-	// objects and links them in the order it is handed: the same sources must give the same binary.
+	// `findFiles` promises no order, and the recipe links the objects in the order it is handed.
 	const named = uris
 		.map((uri) => {
-			// `findFiles` searched under this folder, so this cannot fail. If it ever did,
-			// `asRelativePath` would answer against the wrong root and hand back Windows
-			// separators, which the compiler package rejects; saying so is better than guessing.
 			const name = relativeTo(folder.uri.path, uri.path);
 			if (name === null) throw new Error(`${uri.path} is not inside ${folder.uri.path}`);
 			return { uri, name };

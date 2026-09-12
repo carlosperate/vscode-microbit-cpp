@@ -48,8 +48,8 @@ it('the browser extension bundle leaves vscode external and pulls in nothing els
 	expect(required(bundles['browser.js'])).toEqual(['vscode']);
 });
 
-it('the node extension bundle needs only vscode and worker_threads', () => {
-	expect(required(bundles['node.js']).sort()).toEqual(['node:worker_threads', 'vscode']);
+it('the node extension bundle needs only vscode and what starting a worker takes', () => {
+	expect(required(bundles['node.js']).sort()).toEqual(['node:url', 'node:worker_threads', 'vscode']);
 });
 
 /** The compiler lives in the workers, so neither extension bundle may carry it. */

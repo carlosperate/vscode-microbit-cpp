@@ -1,13 +1,11 @@
+import { pathToFileURL } from 'node:url';
 import { Worker } from 'node:worker_threads';
 
 import type { CompilerWorker } from '../build/compiler';
 
-/**
- * Starts the compiler in a worker thread. No startup deadline as on the web: here `error` and
- * `exit` are real events, so a script that fails to load reports itself.
- */
+/** A file URL because the worker is an ES module, which a bare Windows path fails to load. */
 export function spawnWorker(script: string): CompilerWorker {
-	const worker = new Worker(script);
+	const worker = new Worker(pathToFileURL(script));
 	return {
 		postMessage: (message, transfer = []) => worker.postMessage(message, transfer),
 		onMessage: (listener) => {

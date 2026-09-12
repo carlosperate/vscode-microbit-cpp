@@ -43,15 +43,21 @@ export function excludeGlob(
 
 const isPattern = (entry: unknown): entry is string => typeof entry === 'string' && entry.length > 0;
 
-/**
- * A file's path relative to the folder being built. `asRelativePath` answers
- * against the innermost workspace folder that holds the file, which is a
- * different one when roots are nested inside each other.
- */
+// `findFiles` answers `/d:/…` where a workspace folder says `/D:/…`.
+const comparable = (path: string) => path.replace(/^\/[a-zA-Z]:/, (drive) => drive.toLowerCase());
+
+/** Not `asRelativePath`, which answers against the innermost root and in Windows separators. */
 export function relativeTo(folderPath: string, filePath: string): string | null {
 	const base = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
-	return filePath.startsWith(base) ? filePath.slice(base.length) : null;
+	return comparable(filePath).startsWith(comparable(base)) ? filePath.slice(base.length) : null;
 }
 
-/** Whether a document belongs to the folder. Whole URIs, so scheme and authority count too. */
-export const isInside = (folderUri: string, uri: string): boolean => relativeTo(folderUri, uri) !== null;
+export interface Located {
+	scheme: string;
+	authority: string;
+	path: string;
+}
+
+/** An untitled buffer, or a file on another remote, is not this folder's however its path reads. */
+export const isInside = (folder: Located, uri: Located): boolean =>
+	uri.scheme === folder.scheme && uri.authority === folder.authority && relativeTo(folder.path, uri.path) !== null;
