@@ -1,7 +1,5 @@
 name: Publish Extension
 
-# A GitHub release ticked "This is a pre-release" ships to the pre-release channel.
-
 on:
   release:
     types: [published]
@@ -66,30 +64,12 @@ jobs:
       - name: Integration tests, desktop VS Code
         run: xvfb-run -a npm run test:integration:desktop
 
-      # Which channel this build goes to, decided once: the flag has to be the same when the VSIX is
-      # packaged and when it is published, because the VSIX itself records it. A pre-release version
-      # is only offered to users who opt in, so a stable release must not carry the flag. Stable
-      # takes an explicit unticked "This is a pre-release" on the GitHub release; everything else,
-      # a hand-triggered publish included, is a pre-release, which is the safer way to be wrong.
-      - name: Which channel
-        id: channel
-        run: |
-          if [ "${{ github.event_name }}" = release ] && [ "${{ github.event.release.prerelease }}" = false ]; then
-            echo 'flag=' >> "$GITHUB_OUTPUT"
-            echo 'channel=stable' >> "$GITHUB_OUTPUT"
-          else
-            echo 'flag=--pre-release' >> "$GITHUB_OUTPUT"
-            echo 'channel=pre-release' >> "$GITHUB_OUTPUT"
-          fi
-
-      - run: echo "Publishing to the ${{ steps.channel.outputs.channel }} channel"
-
       # Name and version from package.json; on release the check above matches the version to the tag.
       # The compiler makes this a large VSIX, so its size is on the record for every run.
       - name: Package VSIX
         run: |
           VSIX_NAME="$(node -p "require('./package.json').name")-$(node -p "require('./package.json').version").vsix"
-          npx --yes @vscode/vsce package ${{ steps.channel.outputs.flag }} --out "$VSIX_NAME"
+          npx --yes @vscode/vsce package --out "$VSIX_NAME"
           ls -l "$VSIX_NAME"
           echo "VSIX_NAME=$VSIX_NAME" >> "$GITHUB_ENV"
 
@@ -112,10 +92,10 @@ jobs:
         if: github.event_name == 'release' || github.event.inputs.dry_run == 'false'
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx --yes @vscode/vsce publish ${{ steps.channel.outputs.flag }} --packagePath "$VSIX_NAME"
+        run: npx --yes @vscode/vsce publish --packagePath "$VSIX_NAME"
 
       - name: Publish to Open VSX Registry
         if: github.event_name == 'release' || github.event.inputs.dry_run == 'false'
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: npx --yes ovsx publish ${{ steps.channel.outputs.flag }} --packagePath "$VSIX_NAME"
+        run: npx --yes ovsx publish --packagePath "$VSIX_NAME"
