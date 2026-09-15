@@ -26,6 +26,8 @@ const ENCODER = new TextEncoder();
 /** A build only counts as done when it produced a hex to write. */
 const succeeded = (outcome: BuildOutcome): boolean => outcome.ok && outcome.hex !== null;
 
+const took = (started: number) => `${((Date.now() - started) / 1000).toFixed(1)} s`;
+
 export function createBuild(compiler: Compiler) {
 	const runs = new BuildRuns();
 	let last: BuildRecord | undefined;
@@ -84,24 +86,25 @@ export function createBuild(compiler: Compiler) {
 		}
 
 		const run = runs.start(folder.uri.toString());
+		const started = Date.now();
 		let output = '';
 		try {
 			const outcome = await attempt(folder, run, (step) => {
 				output += step.stderr;
 			});
-			if (!(await settle(run, folder, outcome))) {
+			if (!(await settle(run, folder, outcome, started))) {
 				log('Build superseded by a newer one; its outputs were not written');
 				return;
 			}
 			if (!outcome) return; // nothing was built, and the outputs are already invalidated
 
 			last = { ok: succeeded(outcome), output, error: null };
-			announce(folder, outcome);
+			announce(folder, outcome, started);
 		} catch (error) {
 			const aborted = error instanceof BuildError && error.aborted;
 			const message = error instanceof Error ? error.message : String(error);
-			log(aborted ? 'Build cancelled' : `Build failed: ${message}`);
-			if (!(await settle(run, folder, null)) || aborted) return;
+			log(aborted ? 'Build cancelled' : `Build failed after ${took(started)}: ${message}`);
+			if (!(await settle(run, folder, null, started)) || aborted) return;
 
 			last = { ok: false, output, error: message };
 			showLog();
@@ -119,18 +122,23 @@ export function createBuild(compiler: Compiler) {
  * every other ending removes what an earlier build left, so the hex beside the
  * sources always describes them. False when a newer build owns the outputs now.
  */
-function settle(run: Run, folder: vscode.WorkspaceFolder, outcome: BuildOutcome | null): Promise<boolean> {
-	return run.publish(() => (outcome && succeeded(outcome) ? write(folder, outcome) : invalidate(folder)));
+function settle(
+	run: Run,
+	folder: vscode.WorkspaceFolder,
+	outcome: BuildOutcome | null,
+	started: number
+): Promise<boolean> {
+	return run.publish(() => (outcome && succeeded(outcome) ? write(folder, outcome, started) : invalidate(folder)));
 }
 
-async function write(folder: vscode.WorkspaceFolder, outcome: BuildOutcome): Promise<void> {
+async function write(folder: vscode.WorkspaceFolder, outcome: BuildOutcome, started: number): Promise<void> {
 	const bytes = ENCODER.encode(outcome.hex ?? '');
 	await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder.uri, OUTPUTS.hex), bytes);
 	// An older map left beside a new hex would describe a different binary.
 	const map = vscode.Uri.joinPath(folder.uri, OUTPUTS.map);
 	if (outcome.map !== null) await vscode.workspace.fs.writeFile(map, ENCODER.encode(outcome.map));
 	else await remove(map);
-	log(`Build succeeded: ${OUTPUTS.hex} written, ${bytes.byteLength} bytes`);
+	log(`Build succeeded in ${took(started)}: ${OUTPUTS.hex} written, ${bytes.byteLength} bytes`);
 }
 
 /** A stale hex beside sources it does not match is the one that gets flashed by mistake. */
@@ -147,15 +155,15 @@ async function remove(uri: vscode.Uri): Promise<void> {
 	}
 }
 
-function announce(folder: vscode.WorkspaceFolder, outcome: BuildOutcome): void {
+function announce(folder: vscode.WorkspaceFolder, outcome: BuildOutcome, started: number): void {
 	if (succeeded(outcome)) {
 		void vscode.window
-			.showInformationMessage(`${PRODUCT}: ${OUTPUTS.hex} written to ${folder.name}.`, 'Show Output')
+			.showInformationMessage(`${PRODUCT}: ${OUTPUTS.hex} written to ${folder.name} in ${took(started)}.`, 'Show Output')
 			.then((choice) => choice && showLog());
 		return;
 	}
 	const failed = outcome.lastStep;
-	log(`Build failed: ${failed?.tool ?? 'the build'} exited with ${failed?.exitCode ?? 'an error'}`);
+	log(`Build failed after ${took(started)}: ${failed?.tool ?? 'the build'} exited with ${failed?.exitCode ?? 'an error'}`);
 	showLog();
 	void vscode.window.showErrorMessage(`${PRODUCT}: build failed, see the output for the errors.`);
 }
