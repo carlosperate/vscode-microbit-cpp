@@ -29,7 +29,7 @@ jobs:
       - run: npm ci
 
       # The same editors the test workflow caches, so a release does not download them again.
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         with:
           path: |
             .vscode-test
