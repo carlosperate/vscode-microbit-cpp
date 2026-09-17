@@ -10,11 +10,15 @@
  */
 import * as vscode from 'vscode';
 
-import type { ExtensionApi } from '../../src/activate';
-import { COMMANDS, OUTPUTS } from '../../src/config';
-import { TEMPLATE } from '../../src/project/template';
+import type { BoardInfo, HexSource, MicrobitManagerApi } from 'vscode-bbcmicrobit-manager-api';
 
-const EXTENSION_ID = 'carlosperate.bbcmicrobit-cpp';
+import type { ExtensionApi } from '../../src/activate';
+import type { BuildResult } from '../../src/build/build';
+import { flash } from '../../src/build/flash';
+import { COMMANDS, EXTENSION_ID, MANAGER_EXTENSION, MODE_ID, OUTPUTS, VIEW_ID } from '../../src/config';
+import { isManagerApi } from '../../src/manager/api';
+import { TEMPLATE } from '../../src/project/template';
+import manifest from '../../package.json';
 
 const failures: string[] = [];
 
@@ -51,10 +55,13 @@ export async function run(): Promise<void> {
 	await resetBench(root);
 	checkTheHostLoadedItsOwnEntry(api);
 	await checkContributedCommandsResolve();
+	await checkTheManagerAcceptedTheMode(api);
 	await checkABuildWritesTheHex(root, api);
 	await checkAnErrorIsReportedByFileAndLine(root, api);
 	await checkUnsavedEditsAreBuilt(root, api);
 	await checkTheNewestBuildWins(root, api);
+	await checkAFlashHandsTheManagerWhatItBuilt(api);
+	await checkAV1IsRefusedRatherThanFlashed(api);
 	await checkCreateProject(root);
 
 	summarise();
@@ -71,6 +78,67 @@ async function checkContributedCommandsResolve(): Promise<void> {
 	const registered = new Set(await vscode.commands.getCommands(true));
 	const missing = Object.values(COMMANDS).filter((id) => !registered.has(id));
 	record('every contributed command is registered', missing.length === 0, missing.length ? `missing ${missing.join(', ')}` : Object.values(COMMANDS).join(', '));
+}
+
+/**
+ * The seam the split creates, and the only place it can be seen: the manager is
+ * another extension, so the buttons in the panel are strings in a manifest until
+ * a real one is loaded beside this and accepts the mode.
+ */
+async function checkTheManagerAcceptedTheMode(api: ExtensionApi): Promise<void> {
+	const manager = vscode.extensions.getExtension(MANAGER_EXTENSION);
+	if (!manager) {
+		record(
+			'the manager extension is loaded beside this one',
+			false,
+			`${MANAGER_EXTENSION} is not loaded. The harness unpacks it into .vscode-test/manager and passes that folder to both hosts.`
+		);
+		return;
+	}
+
+	let exported: unknown;
+	try {
+		exported = await manager.activate();
+	} catch (error) {
+		record('the manager extension activates', false, `activate() threw: ${String(error)}`);
+		return;
+	}
+	record(
+		"the manager's exports are the API this extension was built against",
+		isManagerApi(exported),
+		isManagerApi(exported) ? `version ${exported.version}` : `exports=${typeof exported}`
+	);
+	if (!isManagerApi(exported)) return;
+
+	record(
+		'the manager accepted the mode',
+		api.manager.registered,
+		`registered=${String(api.manager.registered)}${api.manager.problem ? `, problem: ${api.manager.problem}` : ''}`
+	);
+	record(
+		'this mode is the active one in a workspace of C++ files',
+		exported.activeMode() === MODE_ID,
+		`activeMode()=${String(exported.activeMode())}`
+	);
+	checkTheButtonsRunRealCommands(exported);
+}
+
+/**
+ * Welcome content is markdown, so the manager's command id is spelled out in our
+ * manifest and nothing but this compares it with the id the API publishes. A
+ * wrong one is a button that does nothing at all.
+ */
+function checkTheButtonsRunRealCommands(manager: MicrobitManagerApi): void {
+	const welcome = manifest.contributes.viewsWelcome.filter((entry) => entry.view === VIEW_ID);
+	const linked = welcome.flatMap((entry) => [...entry.contents.matchAll(/\(command:([^)]+)\)/g)].map((match) => match[1]));
+	const ours = new Set<string>(Object.values(COMMANDS));
+	const theirs = new Set<string>(Object.values(manager.commands));
+	const unknown = linked.filter((command) => !ours.has(command) && !theirs.has(command));
+	record(
+		'every button in the panel runs a command one of the two extensions publishes',
+		linked.length > 0 && unknown.length === 0,
+		unknown.length ? `unknown: ${unknown.join(', ')}` : linked.join(', ')
+	);
 }
 
 /**
@@ -93,7 +161,7 @@ async function checkABuildWritesTheHex(root: vscode.Uri, api: ExtensionApi): Pro
 	await vscode.commands.executeCommand(COMMANDS.build);
 	const elapsed = Date.now() - started;
 
-	const last = api.lastBuild();
+	const last = api.builds.last();
 	if (!last?.ok) {
 		record('a build writes MICROBIT.hex', false, `the build did not succeed: ${last?.error ?? last?.output ?? 'no record'}`);
 		return;
@@ -109,7 +177,7 @@ async function checkAnErrorIsReportedByFileAndLine(root: vscode.Uri, api: Extens
 	await vscode.workspace.fs.writeFile(bad, new TextEncoder().encode('int main() { nope; }\n'));
 	try {
 		await vscode.commands.executeCommand(COMMANDS.build);
-		const last = api.lastBuild();
+		const last = api.builds.last();
 		const output = last?.output ?? '';
 		record(
 			'a broken file fails the build and the output names file, line and column',
@@ -140,10 +208,10 @@ async function checkUnsavedEditsAreBuilt(root: vscode.Uri, api: ExtensionApi): P
 		}
 
 		await vscode.commands.executeCommand(COMMANDS.build);
-		const output = api.lastBuild()?.output ?? '';
+		const output = api.builds.last()?.output ?? '';
 		record(
 			'Build compiles the editor\'s text, not the file on disk',
-			api.lastBuild()?.ok === false && /main\.cpp:1:\d+: error:/.test(output),
+			api.builds.last()?.ok === false && /main\.cpp:1:\d+: error:/.test(output),
 			output.split('\n').find((line: string) => line.includes('error:')) ?? 'the edited buffer compiled clean, so it was not what was built'
 		);
 		record('Build saved the edited file', !document.isDirty, `isDirty=${String(document.isDirty)} after the build`);
@@ -162,9 +230,80 @@ async function checkTheNewestBuildWins(root: vscode.Uri, api: ExtensionApi): Pro
 	await Promise.all([vscode.commands.executeCommand(COMMANDS.build), vscode.commands.executeCommand(COMMANDS.build)]);
 	const elapsed = Date.now() - started;
 
-	const last = api.lastBuild();
+	const last = api.builds.last();
 	record('two overlapping builds settle and the newest writes the hex', last?.ok === true && (await exists(hex)), `${elapsed} ms for both`);
+
+	// Called directly, since a command drops the result: Flash is the caller that needs to know.
+	const [older, newer] = await Promise.all([api.builds.build({ quiet: true }), api.builds.build({ quiet: true })]);
+	record(
+		'the older of two overlapping builds says a newer one took over, and the newer hands back the hex',
+		older.hex === undefined && older.superseded && newer.hex !== undefined,
+		`older: ${summariseResult(older)}; newer: ${summariseResult(newer)}`
+	);
 }
+
+const summariseResult = (result: BuildResult) =>
+	result.hex === undefined ? `no hex, superseded=${String(result.superseded)}` : `${result.hex.length} characters`;
+
+/**
+ * The cross-extension seam, from this side: Flash builds and hands the hex back
+ * with the board `connect()` answered as `expect`. The manager's half is
+ * stubbed, since the real `connect()` ends at a device chooser on web and a
+ * drive search on desktop, neither of which a headless run can answer.
+ */
+async function checkAFlashHandsTheManagerWhatItBuilt(api: ExtensionApi): Promise<void> {
+	const name = 'Flash builds the project and hands the manager the hex with the board as expect';
+	const board: BoardInfo = { version: 'V2', serialNumber: 'integration-test' };
+	let connects = 0;
+	let received: { hex: HexSource; expect: BoardInfo | undefined } | undefined;
+
+	const manager = linkTo({
+		connect: () => {
+			connects += 1;
+			return Promise.resolve(board);
+		},
+		flashHex: (hex, options) => {
+			received = { hex, expect: options?.expect };
+			return Promise.resolve(true);
+		},
+	});
+
+	try {
+		await flash(manager, api.builds)();
+	} catch (error) {
+		record(name, false, `Flash threw: ${String(error)}`);
+		return;
+	}
+
+	const hex = typeof received?.hex === 'string' ? received.hex : undefined;
+	record(
+		name,
+		connects === 1 && hex !== undefined && hex.startsWith(':') && received?.expect === board,
+		`connect() called ${connects} time(s), flashHex got ${hex ? `${hex.length} characters` : 'nothing'}, ` +
+			`expect ${received?.expect === board ? 'is the board connect() answered' : JSON.stringify(received?.expect)}`
+	);
+}
+
+/** CODAL builds for a V2, and the manager writes a plain hex to whatever answered, so this side has to refuse. */
+async function checkAV1IsRefusedRatherThanFlashed(api: ExtensionApi): Promise<void> {
+	let flashes = 0;
+	const manager = linkTo({
+		connect: () => Promise.resolve({ version: 'V1', serialNumber: 'integration-test' }),
+		flashHex: () => {
+			flashes += 1;
+			return Promise.resolve(true);
+		},
+	});
+
+	await flash(manager, api.builds)();
+	record('a micro:bit V1 is refused rather than flashed with a V2 image', flashes === 0, `flashHex called ${flashes} time(s)`);
+}
+
+/** A manager whose board calls are the stub's and whose everything else is unused. */
+const linkTo = (half: Partial<MicrobitManagerApi>) => ({
+	api: () => half as MicrobitManagerApi,
+	status: { registered: true, problem: undefined },
+});
 
 async function checkCreateProject(root: vscode.Uri): Promise<void> {
 	const folder = vscode.Uri.joinPath(root, 'new-project');

@@ -21,6 +21,25 @@ export interface BuildRecord {
 	error: string | null;
 }
 
+/**
+ * The hex, or none. Every ending without one has been announced or was the
+ * user's own cancel, except `superseded`: a newer build took the outputs over,
+ * and it speaks for itself but not for whoever was waiting on this one.
+ */
+export type BuildResult = { hex: string } | { hex: undefined; superseded: boolean };
+
+export interface Builds {
+	/**
+	 * `quiet` is for a caller that reports success itself; a failure is still
+	 * announced, since only this side knows what went wrong.
+	 */
+	build(options?: { quiet?: boolean }): Promise<BuildResult>;
+	last(): BuildRecord | undefined;
+}
+
+const NO_HEX: BuildResult = { hex: undefined, superseded: false };
+const SUPERSEDED: BuildResult = { hex: undefined, superseded: true };
+
 const ENCODER = new TextEncoder();
 
 /** A build only counts as done when it produced a hex to write. */
@@ -28,7 +47,7 @@ const succeeded = (outcome: BuildOutcome): boolean => outcome.ok && outcome.hex 
 
 const took = (started: number) => `${((Date.now() - started) / 1000).toFixed(1)} s`;
 
-export function createBuild(compiler: Compiler) {
+export function createBuild(compiler: Compiler): Builds {
 	const runs = new BuildRuns();
 	let last: BuildRecord | undefined;
 
@@ -74,7 +93,7 @@ export function createBuild(compiler: Compiler) {
 		return outcome;
 	}
 
-	async function build(): Promise<void> {
+	async function build({ quiet = false }: { quiet?: boolean } = {}): Promise<BuildResult> {
 		const folder = await pickFolder();
 		if (!folder) {
 			// Dismissing the folder pick is an answer, not a mistake, so only an empty window is told
@@ -82,7 +101,7 @@ export function createBuild(compiler: Compiler) {
 			if ((vscode.workspace.workspaceFolders ?? []).length === 0) {
 				void vscode.window.showErrorMessage(`${PRODUCT}: open the folder that holds main.cpp, then run Build.`);
 			}
-			return;
+			return NO_HEX;
 		}
 
 		const run = runs.start(folder.uri.toString());
@@ -92,23 +111,28 @@ export function createBuild(compiler: Compiler) {
 			const outcome = await attempt(folder, run, (step) => {
 				output += step.stderr;
 			});
-			if (!(await settle(run, folder, outcome, started))) {
-				log('Build superseded by a newer one; its outputs were not written');
-				return;
+			const published = await settle(run, folder, outcome, started);
+			// Publishing only says this build's work ran: a newer build can start while it writes.
+			if (!published || !run.owns()) {
+				log(`Build superseded by a newer one; ${published ? 'the newer build replaces what it wrote' : 'its outputs were not written'}`);
+				return SUPERSEDED;
 			}
-			if (!outcome) return; // nothing was built, and the outputs are already invalidated
+			if (!outcome) return NO_HEX; // nothing was built, and the outputs are already invalidated
 
 			last = { ok: succeeded(outcome), output, error: null };
-			announce(folder, outcome, started);
+			announce(folder, outcome, started, quiet);
+			return outcome.hex !== null && succeeded(outcome) ? { hex: outcome.hex } : NO_HEX;
 		} catch (error) {
 			const aborted = error instanceof BuildError && error.aborted;
 			const message = error instanceof Error ? error.message : String(error);
 			log(aborted ? 'Build cancelled' : `Build failed after ${took(started)}: ${message}`);
-			if (!(await settle(run, folder, null, started)) || aborted) return;
+			if (!(await settle(run, folder, null, started)) || !run.owns()) return SUPERSEDED;
+			if (aborted) return NO_HEX;
 
 			last = { ok: false, output, error: message };
 			showLog();
 			void vscode.window.showErrorMessage(`${PRODUCT}: build failed. ${message}`);
+			return NO_HEX;
 		} finally {
 			run.finish();
 		}
@@ -155,8 +179,9 @@ async function remove(uri: vscode.Uri): Promise<void> {
 	}
 }
 
-function announce(folder: vscode.WorkspaceFolder, outcome: BuildOutcome, started: number): void {
+function announce(folder: vscode.WorkspaceFolder, outcome: BuildOutcome, started: number, quiet: boolean): void {
 	if (succeeded(outcome)) {
+		if (quiet) return;
 		void vscode.window
 			.showInformationMessage(`${PRODUCT}: ${OUTPUTS.hex} written to ${folder.name} in ${took(started)}.`, 'Show Output')
 			.then((choice) => choice && showLog());

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { SOURCE, SOURCE_GLOB, excludeGlob, isInside, relativeTo } from '../src/build/collect';
+import { CLAIM_GLOB, SOURCE, SOURCE_GLOB, UNSUPPORTED, excludeGlob, isInside, relativeTo } from '../src/build/collect';
 
 describe('excludeGlob', () => {
 	it('folds the setting and the enabled files.exclude entries into one brace group', () => {
@@ -75,5 +75,22 @@ describe('what counts as a source', () => {
 
 	it('collects .c files too, so the compiler can refuse them by name rather than skip them', () => {
 		expect(SOURCE_GLOB).toContain(',c,');
+	});
+});
+
+/** The mode claims a workspace on this, so a folder that claims has to be one Build can build. */
+describe('what makes a folder look like a micro:bit C++ project', () => {
+	const names = CLAIM_GLOB.replace(/^\*\*\/\{|\}$/g, '').split(',');
+
+	it('is a CODAL project file, or a source Build compiles', () => {
+		expect(names).toContain('codal.json');
+		const sources = names.filter((name) => name !== 'codal.json');
+		expect(sources).toHaveLength(3);
+		for (const name of sources) expect(SOURCE.test(name), name).toBe(true);
+	});
+
+	it('is never a header or a source that cannot be built', () => {
+		for (const name of names) expect(UNSUPPORTED.test(name), name).toBe(false);
+		expect(CLAIM_GLOB).not.toContain('.h');
 	});
 });

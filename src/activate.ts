@@ -4,11 +4,15 @@
  */
 import * as vscode from 'vscode';
 
-import { createBuild, type BuildRecord } from './build/build';
+import { createBuild, type Builds } from './build/build';
 import { Compiler, type CompilerWorker } from './build/compiler';
+import { flash } from './build/flash';
 import { COMMANDS, type CommandId } from './config';
 import { createLog, log } from './log';
+import { linkManager, type ManagerStatus } from './manager/link';
+import { createMode } from './manager/mode';
 import { createProject } from './project/create';
+import { createPanel } from './ui/panel';
 
 export type Entry = 'browser' | 'node';
 
@@ -20,7 +24,8 @@ export interface Host {
 /** Handed back from `activate` for the integration tests, which cannot see inside otherwise. */
 export interface ExtensionApi {
 	entry: Entry;
-	lastBuild: () => BuildRecord | undefined;
+	builds: Builds;
+	manager: ManagerStatus;
 }
 
 export function activateHost(context: vscode.ExtensionContext, host: Host): ExtensionApi {
@@ -38,8 +43,16 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Exte
 	context.subscriptions.push({ dispose: () => compiler.dispose() });
 
 	const builds = createBuild(compiler);
+	createPanel(context);
+	// Registering is what puts this extension's buttons in the shared panel: the
+	// manager sets the context key the view is gated on, and nothing else does.
+	const manager = linkManager(context, createMode(context));
+
 	const commands: Record<CommandId, (...args: unknown[]) => Promise<void>> = {
-		[COMMANDS.build]: () => builds.build(),
+		[COMMANDS.build]: async () => {
+			await builds.build();
+		},
+		[COMMANDS.flash]: flash(manager, builds),
 		[COMMANDS.createProject]: createProject,
 	};
 	for (const [id, run] of Object.entries(commands)) {
@@ -57,5 +70,5 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Exte
 		);
 	}
 
-	return { entry: host.entry, lastBuild: builds.last };
+	return { entry: host.entry, builds, manager: manager.status };
 }

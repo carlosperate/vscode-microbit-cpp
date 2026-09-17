@@ -11,6 +11,8 @@ export interface Run {
 	 * only if this build still owns the outputs. False means it was skipped.
 	 */
 	publish: (work: () => Promise<void>) => Promise<boolean>;
+	/** Whether this is still the newest build, which `publish` returning true does not say: one can start during the work. */
+	owns: () => boolean;
 	finish: () => void;
 }
 
@@ -43,6 +45,7 @@ export class BuildRuns {
 				if (folder) folder.queue = done.catch(() => {});
 				return done;
 			},
+			owns,
 			finish: () => {
 				if (owns()) this.#folders.delete(key);
 			},

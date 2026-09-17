@@ -9,20 +9,34 @@ and together with Arm Toolchain for Embedded's C and C++ libraries
 and a prebuilt CODAL, this extension includes everything internally to compile
 micro:bit C++ programmes.
 
-🚧 **Preview.** It builds one fixed CODAL version in one fixed configuration and
-does not flash the board yet. See [the limits](#limits-of-this-preview).
+🚧 **Preview.** It builds one fixed CODAL version in one fixed configuration.
+See [the limits](#limits-of-this-preview).
 
 ## How To Use This Extension
 
 1. Open a workspace that holds a `main.cpp`
     1. Alternatively you can run the `BBC micro:bit C++: Create Project`
       command to create it.
-2. Run **BBC micro:bit C++: Build** from the Command Palette.
+2. Open the **BBC micro:bit** icon in the Activity Bar, and press
+   **Build micro:bit C++ project**.
 3. `MICROBIT.hex` and `MICROBIT.map` appear beside your sources, and the
    compiler's output is in the **BBC micro:bit C++** output channel.
-4. Copy `MICROBIT.hex` onto the `MICROBIT` drive to run it.
+4. Press **Flash C++ project hex** to build again and write it to a connected
+   micro:bit V2, or copy `MICROBIT.hex` onto the `MICROBIT` drive yourself.
+5. **Open serial terminal** shows what the program prints.
 
-To run commands from the Command Palette, press `Ctrl/Cmd`+`Shift`+`P` or `F1`.
+Every button is also a command, so `BBC micro:bit C++: Build` and
+`BBC micro:bit C++: Flash Project` do the same from the Command Palette, which
+opens with `Ctrl/Cmd`+`Shift`+`P` or `F1`.
+
+## The board, and the panel it shares
+
+Connecting, flashing and the serial terminal belong to the
+[BBC micro:bit Manager](https://github.com/carlosperate/vscode-microbit-manager)
+extension, which is installed together with this one. It owns the **BBC
+micro:bit** panel, and every micro:bit language extension you have installed
+adds its own section to it: with more than one, a switcher at the top of the
+panel moves between them.
 
 A build takes every `.cpp`, `.cc` and `.cxx` file under the workspace, and
 every header, excluding what's listed in the `bbcmicrobit-cpp.build.exclude`
@@ -45,8 +59,8 @@ so the flags and codal.json are the default ones that build uses.
 - **One CODAL version and one configuration.** `codal.json` cannot be changed
   yet; the configuration is the `microbit-v2-samples` default, with the
   SoftDevice present and the BLE stack off.
-- **No flashing.** The hex needs to be manually flashed to the device.
-  Additional flashing capabilities will be added in a later release.
+- **micro:bit V2 only.** CODAL builds for the V2's processor, so flashing
+  refuses a V1 rather than writing an image it cannot run.
 - **Errors are text in the output channel**, not markers in the editor.
 - **Memory.** The compiler needs a bit less than 1 GB of RAM when it compiles,
   and keeps about half of that warm, so that later builds start and complete

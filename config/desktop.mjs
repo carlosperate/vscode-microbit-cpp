@@ -33,6 +33,12 @@ const testing = process.argv.includes('--test');
 // Only running there catches that: `--vscode-version=1.91.1`.
 const versionArgument = process.argv.find((argument) => argument.startsWith('--vscode-version='));
 const version = versionArgument?.slice('--vscode-version='.length);
+// Other extensions loaded from source beside this one, `--extension=<path>`, repeatable: the
+// manager this extension depends on, which VS Code refuses to activate it without.
+const alongside = process.argv
+	.filter((argument) => argument.startsWith('--extension='))
+	.map((argument) => path.resolve(root, argument.slice('--extension='.length)));
+const developmentPaths = [root, ...alongside];
 
 /** The limit is on the socket path, so it is the socket that gets measured. */
 const SOCKET_LIMIT = 103;
@@ -127,7 +133,7 @@ if (testing) {
 	try {
 		await runTests({
 			...(version ? { version } : {}),
-			extensionDevelopmentPath: root,
+			extensionDevelopmentPath: developmentPaths,
 			extensionTestsPath: path.join(root, 'test', 'integration', 'dist', 'index.js'),
 			extensionTestsEnv: unsetVscodeVars,
 			launchArgs,
@@ -145,7 +151,7 @@ if (testing) {
 	const args = [
 		// Absolute: VS Code resolves a relative path here against its own cwd, not
 		// the shell's, and then quietly opens a window with no extension in it.
-		`--extensionDevelopmentPath=${root}`,
+		...developmentPaths.map((developmentPath) => `--extensionDevelopmentPath=${developmentPath}`),
 		...launchArgs,
 	];
 	/**

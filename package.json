@@ -13,11 +13,13 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p src/node && tsc --noEmit -p test",
     "test": "vitest run --config config/vitest.config.mts",
     "test:watch": "vitest --config config/vitest.config.mts",
-    "test:integration": "npm run build && npm run build:integration && vscode-test-web --quality stable --headless --extensionDevelopmentPath=. --extensionTestsPath=./test/integration/dist/index.js ./test/workspace",
-    "test:integration:desktop": "npm run build && npm run build:integration && node config/desktop.mjs --test",
-    "serve": "npm run build && vscode-test-web --quality stable --browser=none --port=3000 --extensionDevelopmentPath=. ./test/workspace",
-    "chrome": "npm run build && vscode-test-web --quality stable --browser=chromium --extensionDevelopmentPath=. ./test/workspace",
-    "desktop": "npm run build && node config/desktop.mjs"
+    "test:all": "npm run typecheck && npm test && npm run test:integration && npm run test:integration:desktop",
+    "manager": "node config/manager.mjs",
+    "test:integration": "npm run manager && npm run build && npm run build:integration && vscode-test-web --quality stable --headless --extensionDevelopmentPath=. --extensionPath=.vscode-test/manager/extension --extensionTestsPath=./test/integration/dist/index.js ./test/workspace",
+    "test:integration:desktop": "npm run manager && npm run build && npm run build:integration && node config/desktop.mjs --test --extension=.vscode-test/manager/extension",
+    "serve": "npm run manager && npm run build && vscode-test-web --quality stable --browser=none --port=3000 --extensionDevelopmentPath=. --extensionPath=.vscode-test/manager/extension ./test/workspace",
+    "chrome": "npm run manager && npm run build && vscode-test-web --quality stable --browser=chromium --extensionDevelopmentPath=. --extensionPath=.vscode-test/manager/extension ./test/workspace",
+    "desktop": "npm run manager && npm run build && node config/desktop.mjs --extension=.vscode-test/manager/extension"
   },
   "dependencies": {
     "microbit-clang-wasm": "21.11.0-alpha.1",
@@ -30,7 +32,8 @@
     "@vscode/test-web": "^0.0.81",
     "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "vscode-bbcmicrobit-manager-api": "0.2.0"
   },
   "engines": {
     "vscode": "^1.91.0"
@@ -39,6 +42,12 @@
   "main": "./dist/node.js",
   "extensionKind": [
     "ui"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "carlosperate.bbcmicrobit-manager"
   ],
   "repository": {
     "type": "git",
@@ -71,9 +80,29 @@
         "category": "BBC micro:bit C++"
       },
       {
+        "command": "bbcmicrobit-cpp.flash",
+        "title": "Flash Project",
+        "category": "BBC micro:bit C++"
+      },
+      {
         "command": "bbcmicrobit-cpp.createProject",
         "title": "Create Project",
         "category": "BBC micro:bit C++"
+      }
+    ],
+    "views": {
+      "bbcmicrobit": [
+        {
+          "id": "bbcmicrobit-cpp.panel",
+          "name": "C++",
+          "when": "bbcmicrobit-manager.activeMode == cpp"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "bbcmicrobit-cpp.panel",
+        "contents": "[$(tools) Build micro:bit C++ project](command:bbcmicrobit-cpp.build)\n[$(zap) Flash C++ project hex](command:bbcmicrobit-cpp.flash)\n[$(terminal) Open serial terminal](command:bbcmicrobit-manager.openTerminal)"
       }
     ],
     "configuration": {

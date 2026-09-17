@@ -14,6 +14,13 @@ npm run serve                    # the same, served on :3000 for a browser of yo
 npm run desktop                  # desktop VS Code, isolated profile, node bundle
 ```
 
+Every one of those loads the published BBC micro:bit Manager beside this
+extension. `config/manager.mjs` unpacks it from Open VSX into
+`.vscode-test/manager/` and each script runs it first, fetching again only when
+the published version moves. This extension declares the manager in
+`extensionDependencies`, so VS Code will not activate without it. Its types come
+from the `vscode-bbcmicrobit-manager-api` package on npm.
+
 The extension icon is edited in `assets/icon.svg`. After changing it, run
 `npm run build:icon` and commit both the SVG and generated `assets/icon.png`.
 The export uses Playwright's Chromium, available through `@vscode/test-web`;

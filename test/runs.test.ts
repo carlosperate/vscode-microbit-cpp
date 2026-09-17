@@ -65,6 +65,9 @@ describe('BuildRuns', () => {
 
 		expect(await olderPublished).toBe(true); // it already owned the outputs when it started
 		expect(await newerPublished).toBe(true);
+		// Written, but no longer the newest, so its hex must not be handed to anyone.
+		expect(older.owns()).toBe(false);
+		expect(newer.owns()).toBe(true);
 		// Serialised, so the newer write lands after the older one finishes rather than under it.
 		expect(order).toEqual(['older started', 'older finished', 'newer wrote']);
 	});
