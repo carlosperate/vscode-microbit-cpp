@@ -1,10 +1,17 @@
 # Release Notes
 
-## v0.1.1 - Unreleased
+## v0.2.0 - 2026/09/17
 
 - Added extension icon
+- This extension uses
+  [BBC micro:bit Manager](https://github.com/carlosperate/vscode-microbit-manager),
+  which is installed with it and owns the connection to the board,
+  the serial terminal and the shared panel. Same as MicroPython extension.
+- Added a C++ section to the shared BBC micro:bit side panel, with
+  buttons to build the project, flash it, and open the serial terminal.
+- Added combined `npm run test:all` command to run all tests.
 
-## v0.1.0 - 2026-09-13
+## v0.1.0 - 2026/09/13
 
 Preview release.
 

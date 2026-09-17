@@ -2,7 +2,7 @@
   "name": "bbcmicrobit-cpp",
   "displayName": "BBC micro:bit C++",
   "description": "Build CODAL C++ programs for the BBC micro:bit, directly in VS Code without external compilers and toolchains needed.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "carlosperate",
   "license": "MIT",
   "icon": "assets/icon.png",
