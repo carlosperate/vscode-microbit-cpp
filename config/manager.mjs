@@ -33,7 +33,7 @@ try {
 	fs.mkdirSync(staging, { recursive: true });
 	// `.zip`, not `.vsix`: Windows PowerShell's Expand-Archive refuses any other extension.
 	const archive = path.join(staging, 'manager.zip');
-	const response = await fetch(`https://open-vsx.org/api/${publisher}/${name}/${latest}/file/${publisher}.${name}-${latest}.vsix`);
+	const response = await ask(`https://open-vsx.org/api/${publisher}/${name}/${latest}/file/${publisher}.${name}-${latest}.vsix`);
 	if (!response.ok) throw new Error(`could not download ${ID} ${latest} (HTTP ${response.status})`);
 	fs.writeFileSync(archive, Buffer.from(await response.arrayBuffer()));
 	unzip(archive, staging);
@@ -55,16 +55,33 @@ console.log(`[manager] ${ID} ${latest} is in .vscode-test/manager`);
 /** `undefined` keeps whatever is cached, so a run offline is a run, not a failure. */
 async function published() {
 	try {
-		const response = await fetch(`https://open-vsx.org/api/${publisher}/${name}/latest`);
-		if (!response.ok) throw new Error(`HTTP ${response.status}`);
+		const response = await ask(`https://open-vsx.org/api/${publisher}/${name}/latest`);
+		// `ask` answers or throws, so this is the one status it passes through.
+		if (response.status === 404) throw new Error(`Open VSX has no ${ID}`);
 		return (await response.json()).version;
 	} catch (error) {
 		if (here) {
-			console.log(`[manager] could not ask Open VSX for the latest version (${String(error)}), keeping ${here}`);
+			console.log(`[manager] Open VSX did not answer (${error.message}), keeping ${here}`);
 			return undefined;
 		}
-		throw error;
+		throw new Error(`Open VSX did not answer for ${ID} (${error.message}), and nothing is cached here`);
 	}
+}
+
+/** Open VSX answers 503 often enough under load that one attempt is not an answer. */
+async function ask(url, attempts = 4) {
+	let last;
+	for (let attempt = 1; attempt <= attempts; attempt += 1) {
+		try {
+			const response = await fetch(url);
+			if (response.ok || response.status === 404) return response;
+			last = new Error(`HTTP ${response.status}`);
+		} catch (error) {
+			last = error;
+		}
+		if (attempt < attempts) await new Promise((resume) => setTimeout(resume, attempt * 1000));
+	}
+	throw last;
 }
 
 /** A VSIX is a zip, and neither node nor this repository has an unzipper. */
