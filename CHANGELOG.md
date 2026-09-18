@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.3.0 - Unreleased
+## v0.3.0 - 2026/09/19
 
 - Sidebar panel is no longer shared with other micro:bit extensions.
   It is now a dedicated panel for this one.
