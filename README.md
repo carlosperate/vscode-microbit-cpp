@@ -2,7 +2,7 @@
 
 Build C++ programs for the BBC micro:bit with
 [CODAL](https://github.com/lancaster-university/codal-microbit-v2), in VS Code
-(web and desktop) without additional compilers or toolchains.
+(web and desktop) without any additional compilers or toolchains.
 
 The Clang compiler, LLD and the LLVM binutils have been built to WebAssembly,
 and together with Arm Toolchain for Embedded's C and C++ libraries
@@ -15,7 +15,7 @@ See [the limits](#limits-of-this-preview).
 ## How To Use This Extension
 
 1. Open a workspace that holds a `main.cpp`
-    1. Alternatively you can run the `BBC micro:bit C++: Create Project`
+    1. Alternatively you can run the `BBC micro:bit C++: Create C++ Project`
       command to create it.
 2. Open the **BBC micro:bit** icon in the Activity Bar, and press
    **Build micro:bit C++ project**.
@@ -25,8 +25,8 @@ See [the limits](#limits-of-this-preview).
    micro:bit V2, or copy `MICROBIT.hex` onto the `MICROBIT` drive yourself.
 5. **Open serial terminal** shows what the program prints.
 
-Every button is also a command, so `BBC micro:bit C++: Build` and
-`BBC micro:bit C++: Flash Project` do the same from the Command Palette, which
+Every button is also a command, so `BBC micro:bit C++: Build C++ Project` and
+`BBC micro:bit C++: Flash C++ Project` do the same from the Command Palette, which
 opens with `Ctrl/Cmd`+`Shift`+`P` or `F1`.
 
 ## The board, and the panel it shares

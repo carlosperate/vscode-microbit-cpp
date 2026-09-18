@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="1.5 3.5 21 17">
+  <title>micro:bit board with the C++ logo</title>
+  <!-- The viewBox is the board's own bounding box, so it fills the icon slot
+       edge to edge instead of sitting in a square with margins around it. -->
+  <!-- Masked to the theme colour, so only the alpha survives. The board uses
+       an evenodd outline, since a mask has no second tone. -->
+  <path fill-rule="evenodd" d="M4.5 3.5A3 3 0 0 0 1.5 6.5v11a3 3 0 0 0 3 3h15a3 3 0 0 0 3-3v-11a3 3 0 0 0-3-3z
+  M4.7 4.6A2.1 2.1 0 0 0 2.6 6.7v10.6a2.1 2.1 0 0 0 2.1 2.1h14.6a2.1 2.1 0 0 0 2.1-2.1V6.7a2.1 2.1 0 0 0-2.1-2.1z
+  M2.6 9.1V6.7a2.1 2.1 0 0 1 2.1-2.1h2.4z
+  M7.8 4.6h2.4L7.8 7z
+  M3 10h3.2v3.2H3zM17.8 10H21v3.2h-3.2z
+  M4.06 16.09h16.68a.8.8 0 0 1 .8.8v1.02a.8.8 0 0 1-.8.8H4.06a.8.8 0 0 1-.8-.8v-1.02a.8.8 0 0 1 .8-.8z
+  M3.95 17.4a.79.79 0 1 0 1.58 0 .79.79 0 1 0-1.58 0
+  M7.54 17.4a.79.79 0 1 0 1.58 0 .79.79 0 1 0-1.58 0
+  M11.21 17.4a.79.79 0 1 0 1.58 0 .79.79 0 1 0-1.58 0
+  M14.88 17.4a.79.79 0 1 0 1.58 0 .79.79 0 1 0-1.58 0
+  M18.47 17.4a.79.79 0 1 0 1.58 0 .79.79 0 1 0-1.58 0"/>
+  <!-- Same C++ paths as icon.svg, scaled to the original M's height and
+       with the C centred between the buttons at (12, 11.6). -->
+  <g transform="translate(-1.1775 -1.735) scale(.105)">
+    <path d="M160 91H115L91 115V139L115 163H160V148H121.586L107 133.414V120.586L121.586 106H160Z"/>
+    <path d="M126.5 116h7v7.5h7.5v7h-7.5v7.5h-7v-7.5h-7.5v-7h7.5z"/>
+    <path d="M151.5 116h7v7.5h7.5v7h-7.5v7.5h-7v-7.5h-7.5v-7h7.5z"/>
+  </g>
+</svg>

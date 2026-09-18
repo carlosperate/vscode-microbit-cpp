@@ -76,17 +76,17 @@
     "commands": [
       {
         "command": "bbcmicrobit-cpp.build",
-        "title": "Build",
+        "title": "Build C++ Project",
         "category": "BBC micro:bit C++"
       },
       {
         "command": "bbcmicrobit-cpp.flash",
-        "title": "Flash Project",
+        "title": "Flash C++ Project",
         "category": "BBC micro:bit C++"
       },
       {
         "command": "bbcmicrobit-cpp.createProject",
-        "title": "Create Project",
+        "title": "Create C++ Project",
         "category": "BBC micro:bit C++"
       }
     ],
@@ -95,6 +95,7 @@
         {
           "id": "bbcmicrobit-cpp.panel",
           "name": "C++",
+          "icon": "assets/activitybar.svg",
           "when": "bbcmicrobit-manager.activeMode == cpp"
         }
       ]

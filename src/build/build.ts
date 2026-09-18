@@ -242,7 +242,7 @@ async function collect(folder: vscode.WorkspaceFolder): Promise<Files | null> {
 	}
 	if (!uris.some((uri) => SOURCE.test(uri.path))) {
 		void vscode.window.showErrorMessage(
-			`${PRODUCT}: no C++ source (.cpp) in ${folder.name}. Run "Create Project" to start one.`
+			`${PRODUCT}: no C++ source (.cpp) in ${folder.name}. Run "Create C++ Project" to start one.`
 		);
 		return null;
 	}

@@ -14,7 +14,7 @@ export async function createProject(target?: unknown): Promise<void> {
 	const picked = target instanceof vscode.Uri ? undefined : await pickFolder();
 	const folder = target instanceof vscode.Uri ? target : picked?.uri;
 	if (!folder) {
-		void vscode.window.showErrorMessage(`${PRODUCT}: open the folder for the new project, then run Create Project.`);
+		void vscode.window.showErrorMessage(`${PRODUCT}: open the folder for the new project, then run Create C++ Project.`);
 		return;
 	}
 	// A workspace folder always has a name; an Explorer-supplied URI has only a path.
