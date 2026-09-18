@@ -1,5 +1,11 @@
 # Release Notes
 
+## v0.3.0 - Unreleased
+
+- Sidebar panel is no longer shared with other micro:bit extensions.
+  It is now a dedicated panel for this one.
+- Its commands are still in the micro:bit menu in the status bar.
+
 ## v0.2.0 - 2026/09/17
 
 - Added extension icon

@@ -15,8 +15,17 @@ import type { BoardInfo, HexSource, MicrobitManagerApi } from 'vscode-bbcmicrobi
 import type { ExtensionApi } from '../../src/activate';
 import type { BuildResult } from '../../src/build/build';
 import { flash } from '../../src/build/flash';
-import { COMMANDS, EXTENSION_ID, MANAGER_EXTENSION, MODE_ID, OUTPUTS, VIEW_ID } from '../../src/config';
-import { isManagerApi } from '../../src/manager/api';
+import {
+	COMMANDS,
+	CONTAINER_ID,
+	EXTENSION_ID,
+	MANAGER_API_VERSION,
+	MANAGER_EXTENSION,
+	OUTPUTS,
+	PRODUCT,
+	VIEW_ID,
+} from '../../src/config';
+import { checkManager } from '../../src/manager/api';
 import { TEMPLATE } from '../../src/project/template';
 import manifest from '../../package.json';
 
@@ -55,7 +64,8 @@ export async function run(): Promise<void> {
 	await resetBench(root);
 	checkTheHostLoadedItsOwnEntry(api);
 	await checkContributedCommandsResolve();
-	await checkTheManagerAcceptedTheMode(api);
+	await checkTheSidebarIsItsOwn();
+	await checkTheManagerIsLinked(api);
 	await checkABuildWritesTheHex(root, api);
 	await checkAnErrorIsReportedByFileAndLine(root, api);
 	await checkUnsavedEditsAreBuilt(root, api);
@@ -81,11 +91,28 @@ async function checkContributedCommandsResolve(): Promise<void> {
 }
 
 /**
+ * A container id that does not resolve sends the view to the Explorer with
+ * nothing but a log line. The workbench registers a `.focus` command per view
+ * and container only once it has accepted them, so this asks it, not the JSON.
+ */
+async function checkTheSidebarIsItsOwn(): Promise<void> {
+	const container = manifest.contributes.viewsContainers.activitybar.find((entry) => entry.id === CONTAINER_ID);
+	const registered = await vscode.commands.getCommands(true);
+	const expected = [`workbench.view.extension.${CONTAINER_ID}`, `${VIEW_ID}.focus`];
+	const missing = expected.filter((command) => !registered.includes(command));
+	record(
+		'the workbench registered our own container and its view',
+		container?.title === PRODUCT && missing.length === 0,
+		`${CONTAINER_ID} "${String(container?.title)}"${missing.length ? `, missing: ${missing.join(', ')}` : `, ${expected.join(', ')}`}`
+	);
+}
+
+/**
  * The seam the split creates, and the only place it can be seen: the manager is
  * another extension, so the buttons in the panel are strings in a manifest until
- * a real one is loaded beside this and accepts the mode.
+ * a real one is loaded beside this, serving the API it was built against.
  */
-async function checkTheManagerAcceptedTheMode(api: ExtensionApi): Promise<void> {
+async function checkTheManagerIsLinked(api: ExtensionApi): Promise<void> {
 	const manager = vscode.extensions.getExtension(MANAGER_EXTENSION);
 	if (!manager) {
 		record(
@@ -103,24 +130,20 @@ async function checkTheManagerAcceptedTheMode(api: ExtensionApi): Promise<void> 
 		record('the manager extension activates', false, `activate() threw: ${String(error)}`);
 		return;
 	}
+	const check = checkManager(exported, MANAGER_API_VERSION);
 	record(
-		"the manager's exports are the API this extension was built against",
-		isManagerApi(exported),
-		isManagerApi(exported) ? `version ${exported.version}` : `exports=${typeof exported}`
+		'the manager serves the API this extension was built against',
+		check.kind === 'accepted',
+		`${check.kind}, this needs ${MANAGER_API_VERSION}${check.kind === 'accepted' ? '' : `, problem: ${String(api.manager.problem)}`}`
 	);
-	if (!isManagerApi(exported)) return;
+	if (check.kind !== 'accepted') return;
 
 	record(
-		'the manager accepted the mode',
+		'the manager took the menu group',
 		api.manager.registered,
-		`registered=${String(api.manager.registered)}${api.manager.problem ? `, problem: ${api.manager.problem}` : ''}`
+		`registered=${String(api.manager.registered)}, API ${check.api.version}`
 	);
-	record(
-		'this mode is the active one in a workspace of C++ files',
-		exported.activeMode() === MODE_ID,
-		`activeMode()=${String(exported.activeMode())}`
-	);
-	checkTheButtonsRunRealCommands(exported);
+	checkTheButtonsRunRealCommands(check.api);
 }
 
 /**

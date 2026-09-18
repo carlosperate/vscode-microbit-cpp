@@ -17,7 +17,7 @@ See [the limits](#limits-of-this-preview).
 1. Open a workspace that holds a `main.cpp`
     1. Alternatively you can run the `BBC micro:bit C++: Create C++ Project`
       command to create it.
-2. Open the **BBC micro:bit** icon in the Activity Bar, and press
+2. Open the **BBC micro:bit C++** icon in the Activity Bar, and press
    **Build micro:bit C++ project**.
 3. `MICROBIT.hex` and `MICROBIT.map` appear beside your sources, and the
    compiler's output is in the **BBC micro:bit C++** output channel.
@@ -29,20 +29,18 @@ Every button is also a command, so `BBC micro:bit C++: Build C++ Project` and
 `BBC micro:bit C++: Flash C++ Project` do the same from the Command Palette, which
 opens with `Ctrl/Cmd`+`Shift`+`P` or `F1`.
 
-## The board, and the panel it shares
+## The board
 
-Connecting, flashing and the serial terminal belong to the
+Connecting, flashing and the serial terminal are managed by the
 [BBC micro:bit Manager](https://github.com/carlosperate/vscode-microbit-manager)
-extension, which is installed together with this one. It owns the **BBC
-micro:bit** panel, and every micro:bit language extension you have installed
-adds its own section to it: with more than one, a switcher at the top of the
-panel moves between them.
+extension, which is installed together with this one. It creates a `micro:bit`
+item in the status bar, which lists this extension's commands too.
 
 A build takes every `.cpp`, `.cc` and `.cxx` file under the workspace, and
 every header, excluding what's listed in the `bbcmicrobit-cpp.build.exclude`
 setting.
 
-## The desktop toolchain, without the toolchain
+## The C++ toolchain built into this extension
 
 On a desktop computer, you normally have to install `arm-none-eabi-gcc`, CMake,
 Ninja, and Python; then clone `microbit-v2-samples`, and use the build script.
@@ -50,7 +48,8 @@ Ninja, and Python; then clone `microbit-v2-samples`, and use the build script.
 This extension carries the compiler in
 [`microbit-clang-wasm`](https://github.com/carlosperate/microbit-clang-wasm)
 and CODAL with its build recipe in
-[`microbit-clang-wasm-codal`](https://github.com/carlosperate/microbit-clang-wasm-codal), currently using CODAL v0.3.5.
+[`microbit-clang-wasm-codal`](https://github.com/carlosperate/microbit-clang-wasm-codal),
+currently using CODAL v0.3.5.
 The recipe is captured from CODAL's own CMake build with the Clang toolchain,
 so the flags and codal.json are the default ones that build uses.
 

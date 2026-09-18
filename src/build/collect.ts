@@ -15,10 +15,6 @@ export const SOURCE = /\.(cpp|cc|cxx)$/i;
 // checking here as well is what makes the refusal immediate and specific about which files.
 export const UNSUPPORTED = /\.(c|s|asm)$/i;
 
-// What makes a folder look like a micro:bit C++ project, for the mode's claim on a workspace. Not
-// `SOURCE_GLOB`: a folder whose only C++ file is a header belongs to somebody else's project.
-export const CLAIM_GLOB = '**/{codal.json,*.cpp,*.cc,*.cxx}';
-
 /** Past this a folder is more likely the wrong one than a large program. */
 export const MAX_FILES = 1000;
 

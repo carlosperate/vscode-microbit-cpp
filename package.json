@@ -33,7 +33,7 @@
     "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11",
-    "vscode-bbcmicrobit-manager-api": "0.2.0"
+    "vscode-bbcmicrobit-manager-api": "0.3.0"
   },
   "engines": {
     "vscode": "^1.91.0"
@@ -90,13 +90,21 @@
         "category": "BBC micro:bit C++"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "bbcmicrobit-cpp",
+          "title": "BBC micro:bit C++",
+          "icon": "assets/activitybar.svg"
+        }
+      ]
+    },
     "views": {
-      "bbcmicrobit": [
+      "bbcmicrobit-cpp": [
         {
           "id": "bbcmicrobit-cpp.panel",
-          "name": "C++",
-          "icon": "assets/activitybar.svg",
-          "when": "bbcmicrobit-manager.activeMode == cpp"
+          "name": "BBC micro:bit C++",
+          "icon": "assets/activitybar.svg"
         }
       ]
     },

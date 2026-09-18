@@ -10,7 +10,7 @@ import { flash } from './build/flash';
 import { COMMANDS, type CommandId } from './config';
 import { createLog, log } from './log';
 import { linkManager, type ManagerStatus } from './manager/link';
-import { createMode } from './manager/mode';
+import { menuGroup } from './manager/menu';
 import { createProject } from './project/create';
 import { createPanel } from './ui/panel';
 
@@ -44,9 +44,7 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Exte
 
 	const builds = createBuild(compiler);
 	createPanel(context);
-	// Registering is what puts this extension's buttons in the shared panel: the
-	// manager sets the context key the view is gated on, and nothing else does.
-	const manager = linkManager(context, createMode(context));
+	const manager = linkManager(context, menuGroup(context));
 
 	const commands: Record<CommandId, (...args: unknown[]) => Promise<void>> = {
 		[COMMANDS.build]: async () => {

@@ -11,7 +11,7 @@ export const COMMANDS = {
 
 export type CommandId = (typeof COMMANDS)[keyof typeof COMMANDS];
 
-/** This extension's own id, which is what it registers its mode under. */
+/** This extension's own id, whose page a message opens when this is the extension to update. */
 export const EXTENSION_ID = 'carlosperate.bbcmicrobit-cpp';
 
 /** The settings section and its keys, as the manifest declares them. */
@@ -30,26 +30,23 @@ export const PRODUCT = 'BBC micro:bit C++';
 export const OUTPUTS = { hex: 'MICROBIT.hex', map: 'MICROBIT.map' } as const;
 
 /**
- * The extension that owns the board, the shared `BBC micro:bit` panel and the
- * mode switcher. This one builds a hex and hands it over; every byte that
+ * The extension that owns the board, the serial terminal and the micro:bit
+ * status bar menu. This one builds a hex and hands it over; every byte that
  * reaches a board goes through there.
  */
 export const MANAGER_EXTENSION = 'carlosperate.bbcmicrobit-manager';
 
-/** The lowest manager API this extension works against, as the types package versions it. */
-export const MANAGER_API_VERSION = '0.2.0';
+/** The manager API this extension was built against, as the types package versions it. */
+export const MANAGER_API_VERSION = '0.3.0';
 
-/** The mode this extension registers, and the segment label a user reads. */
-export const MODE_ID = 'cpp';
-export const MODE_LABEL = 'C++';
+/**
+ * This extension's own activity bar container. No dot in it: the workbench
+ * schema for a container id is `/^[a-z0-9_-]+$/i`, and one that does not
+ * resolve sends its views to the Explorer with nothing but a log line.
+ */
+export const CONTAINER_ID = 'bbcmicrobit-cpp';
 
-/** The clause the manager makes true while this is the active mode; the one view here is gated on it. */
-export const MODE_WHEN = `bbcmicrobit-manager.activeMode == ${MODE_ID}`;
-
-/** The shared activity bar container the manager declares. Never declared here. */
-export const CONTAINER_ID = 'bbcmicrobit';
-
-/** This extension's half of that panel: welcome content over a tree that stays empty. */
+/** The panel: welcome content over a tree that stays empty. */
 export const VIEW_ID = 'bbcmicrobit-cpp.panel';
 
 /** CODAL here is codal-microbit-v2, so what this builds cannot run on a V1. */

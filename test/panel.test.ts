@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import manifest from '../package.json';
-import { COMMANDS, CONTAINER_ID, MANAGER_EXTENSION, MODE_WHEN, VIEW_ID } from '../src/config';
+import { COMMANDS, CONTAINER_ID, MANAGER_EXTENSION, PRODUCT, VIEW_ID } from '../src/config';
 
 /**
- * This extension's half of the shared panel is strings in the manifest that VS
- * Code interprets: a container id another extension declares, a context key
- * another extension sets, and command ids in markdown. A typo in any of them
- * shows nothing and says nothing, which is why they are checked here.
+ * The sidebar is strings in the manifest that VS Code interprets: a container
+ * id, a view in it, their names, and command ids in markdown. A typo in any of
+ * them shows nothing and says nothing, which is why they are checked here.
  */
+const container = manifest.contributes.viewsContainers.activitybar.find((entry) => entry.id === CONTAINER_ID);
 const views: { id: string; name: string; type?: string; when?: string }[] = manifest.contributes.views[CONTAINER_ID];
 const welcome = manifest.contributes.viewsWelcome;
 
@@ -20,46 +20,28 @@ const buttons = welcome.flatMap((entry) =>
 	}))
 );
 
-describe('the view in the shared panel', () => {
-	/**
-	 * The manager owns the container, and a mode contributes into it. Declaring a
-	 * container of our own again would be a second micro:bit icon.
-	 */
-	it('goes into the container the manager declares, and declares none of its own', () => {
-		expect(views).toHaveLength(1);
-		expect(views[0]?.id).toBe(VIEW_ID);
-		expect('viewsContainers' in manifest.contributes).toBe(false);
+describe('the sidebar', () => {
+	it('is a container of its own, titled with the product name', () => {
+		expect(container?.title).toBe(PRODUCT);
+		expect(Object.keys(manifest.contributes.views)).toEqual([CONTAINER_ID]);
 	});
 
-	/**
-	 * The workbench splits a section's height equally between the views an
-	 * extension puts there, and honours `initialSize` only for the container's
-	 * owner, so a second view would take half the panel whatever it held.
-	 */
+	/** A second view would cost its own header and a body never under 120px, so the buttons share one. */
 	it('is one tree, whose welcome content is the buttons', () => {
+		expect(views).toHaveLength(1);
+		expect(views[0]?.id).toBe(VIEW_ID);
 		expect(views[0]?.type).toBeUndefined();
 		expect(welcome.every((entry) => entry.view === VIEW_ID)).toBe(true);
 	});
 
-	/**
-	 * The manager names the active mode in one key, and this clause is true only
-	 * while it names C++, which is how switching hides everything of ours. A view
-	 * without the clause would stay visible inside every other mode.
-	 */
-	it('is gated on the active-mode clause the manager makes true', () => {
-		expect(views[0]?.when).toBe(MODE_WHEN);
+	/** VS Code merges a lone view's name into the container header, and shows it once only when the two match. */
+	it('names the view the same as its container', () => {
+		expect(views[0]?.name).toBe(container?.title);
 	});
 
-	/**
-	 * Pane headers are rendered with `text-transform: capitalize`, which turns
-	 * `micro:bit` into `Micro:Bit`, so a view name has to read right capitalised.
-	 */
-	it('is named so that capitalising it changes nothing', () => {
-		const capitalised = (views[0]?.name ?? '').replace(
-			/(^|[^a-z])([a-z])/gi,
-			(_, before: string, letter: string) => `${before}${letter.toUpperCase()}`
-		);
-		expect(capitalised).toBe(views[0]?.name);
+	/** A `when` hides the icon until a key is set, so it would arrive a moment after the window. */
+	it('shows the view unconditionally', () => {
+		expect(views[0]?.when).toBeUndefined();
 	});
 });
 
@@ -97,16 +79,13 @@ describe('the buttons', () => {
 });
 
 describe('the dependency on the manager', () => {
-	/** Installing this installs the manager, and the container it declares is what our view needs. */
-	it('is declared, so the container always exists', () => {
+	/** Installing this installs the manager, which owns the board. */
+	it('is declared', () => {
 		expect(manifest.extensionDependencies).toContain(MANAGER_EXTENSION);
 	});
 
-	/**
-	 * A mode that activated on the workspace it recognises would never register in
-	 * a workspace of another kind, and could then never be switched to.
-	 */
-	it('activates at startup, so the mode is registered whatever the workspace holds', () => {
+	/** Activating only on a C++ workspace would leave the status bar menu without our commands everywhere else. */
+	it('activates at startup, so the menu group is registered whatever the workspace holds', () => {
 		expect(manifest.activationEvents).toContain('onStartupFinished');
 	});
 });
