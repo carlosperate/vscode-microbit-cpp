@@ -1,5 +1,10 @@
 # Release Notes
 
+## v0.3.1 - Unreleased
+
+- Update button text
+- Fix project description images not loading on vscode.dev.
+
 ## v0.3.0 - 2026/09/19
 
 - Sidebar panel is no longer shared with other micro:bit extensions.

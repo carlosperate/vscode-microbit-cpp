@@ -66,10 +66,11 @@ jobs:
 
       # Name and version from package.json; on release the check above matches the version to the tag.
       # The compiler makes this a large VSIX, so its size is on the record for every run.
+      # vscode.dev refuses github.com/raw images (a 302 with no CORP header), raw.githubusercontent.com serves them.
       - name: Package VSIX
         run: |
           VSIX_NAME="$(node -p "require('./package.json').name")-$(node -p "require('./package.json').version").vsix"
-          npx --yes @vscode/vsce package --out "$VSIX_NAME"
+          npx --yes @vscode/vsce package --out "$VSIX_NAME" --baseImagesUrl https://raw.githubusercontent.com/carlosperate/vscode-microbit-cpp/HEAD/
           ls -l "$VSIX_NAME"
           echo "VSIX_NAME=$VSIX_NAME" >> "$GITHUB_ENV"
 

@@ -111,7 +111,7 @@
     "viewsWelcome": [
       {
         "view": "bbcmicrobit-cpp.panel",
-        "contents": "[$(tools) Build micro:bit C++ project](command:bbcmicrobit-cpp.build)\n[$(zap) Flash C++ project hex](command:bbcmicrobit-cpp.flash)\n[$(terminal) Open serial terminal](command:bbcmicrobit-manager.openTerminal)"
+        "contents": "[$(tools) Build micro:bit C++ project](command:bbcmicrobit-cpp.build)\n[$(zap) Flash C++ project](command:bbcmicrobit-cpp.flash)\n[$(terminal) Open serial terminal](command:bbcmicrobit-manager.openTerminal)"
       }
     ],
     "configuration": {

@@ -72,7 +72,7 @@ describe('the buttons', () => {
 	it('say what they do without needing the panel for context', () => {
 		expect(buttons.map((button) => button.label)).toEqual([
 			'Build micro:bit C++ project',
-			'Flash C++ project hex',
+			'Flash C++ project',
 			'Open serial terminal',
 		]);
 	});
