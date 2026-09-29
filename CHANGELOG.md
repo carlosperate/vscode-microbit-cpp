@@ -4,6 +4,9 @@
 
 - Update button text
 - Fix project description images not loading on vscode.dev.
+- `Create C++ Project` now writes a `codal.json` and a `source/main.cpp`, the
+  layout of CODAL's own samples. A project that already has a `main.cpp`, in
+  `source/` or beside `codal.json`, is left as it is.
 
 ## v0.3.0 - 2026/09/19
 

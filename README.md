@@ -16,7 +16,8 @@ See [the limits](#limits-of-this-preview).
 
 1. Open a workspace that holds a `main.cpp`
     1. Alternatively you can run the `BBC micro:bit C++: Create C++ Project`
-      command to create it.
+      command, which writes a `codal.json` and a `source/main.cpp`, the
+      layout of CODAL's own samples.
 2. Open the **BBC micro:bit C++** icon in the Activity Bar, and press
    **Build micro:bit C++ project**.
 3. `MICROBIT.hex` and `MICROBIT.map` appear beside your sources, and the
@@ -57,7 +58,8 @@ so the flags and codal.json are the default ones that build uses.
 
 - **One CODAL version and one configuration.** `codal.json` cannot be changed
   yet; the configuration is the `microbit-v2-samples` default, with the
-  SoftDevice present and the BLE stack off.
+  SoftDevice present and the BLE stack off. The `codal.json` a new project
+  gets shows that configuration, and editing it has no effect for now.
 - **micro:bit V2 only.** CODAL builds for the V2's processor, so flashing
   refuses a V1 rather than writing an image it cannot run.
 - **Errors are text in the output channel**, not markers in the editor.

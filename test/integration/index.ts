@@ -26,7 +26,7 @@ import {
 	VIEW_ID,
 } from '../../src/config';
 import { checkManager } from '../../src/manager/api';
-import { TEMPLATE } from '../../src/project/template';
+import { CODAL_JSON, FILES, TEMPLATE } from '../../src/project/template';
 import manifest from '../../package.json';
 
 const failures: string[] = [];
@@ -173,8 +173,20 @@ async function resetBench(root: vscode.Uri): Promise<void> {
 	await Promise.all(
 		[OUTPUTS.hex, OUTPUTS.map, 'bad.cpp', 'new-project'].map((name) => remove(vscode.Uri.joinPath(root, name)))
 	);
-	await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(root, 'main.cpp'), new TextEncoder().encode(TEMPLATE));
+	await write(root, FILES.codalJson, CODAL_JSON);
+	await write(root, FILES.main, TEMPLATE);
 }
+
+async function write(folder: vscode.Uri, file: string, text: string): Promise<void> {
+	const uri = vscode.Uri.joinPath(folder, file);
+	await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(uri, '..'));
+	await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(text));
+}
+
+const read = async (folder: vscode.Uri, file: string) => {
+	const uri = vscode.Uri.joinPath(folder, file);
+	return (await exists(uri)) ? decode(await vscode.workspace.fs.readFile(uri)) : undefined;
+};
 
 async function checkABuildWritesTheHex(root: vscode.Uri, api: ExtensionApi): Promise<void> {
 	const hex = vscode.Uri.joinPath(root, OUTPUTS.hex);
@@ -219,7 +231,7 @@ async function checkAnErrorIsReportedByFileAndLine(root: vscode.Uri, api: Extens
  * buffer, so this is the one place the behaviour can be shown at all.
  */
 async function checkUnsavedEditsAreBuilt(root: vscode.Uri, api: ExtensionApi): Promise<void> {
-	const main = vscode.Uri.joinPath(root, 'main.cpp');
+	const main = vscode.Uri.joinPath(root, FILES.main);
 	const original = await vscode.workspace.fs.readFile(main);
 	try {
 		const document = await vscode.workspace.openTextDocument(main);
@@ -332,16 +344,31 @@ async function checkCreateProject(root: vscode.Uri): Promise<void> {
 	const folder = vscode.Uri.joinPath(root, 'new-project');
 	await remove(folder);
 	await vscode.workspace.fs.createDirectory(folder);
+	const names = async () => (await vscode.workspace.fs.readDirectory(folder)).map(([name]) => name).sort().join(', ');
 	try {
 		await vscode.commands.executeCommand(COMMANDS.createProject, folder);
-		const main = vscode.Uri.joinPath(folder, 'main.cpp');
-		const written = (await exists(main)) ? decode(await vscode.workspace.fs.readFile(main)) : '';
-		record('Create Project writes the template main.cpp into the folder it is given', written === TEMPLATE, main.path);
+		record(
+			'Create Project writes source/main.cpp and codal.json into the folder it is given',
+			(await read(folder, FILES.main)) === TEMPLATE && (await read(folder, FILES.codalJson)) === CODAL_JSON,
+			`${folder.path}: ${await names()}`
+		);
 
-		// Again: the file is kept, not overwritten, and the command still returns.
+		// Again, over files that were changed: both are kept, and the command still returns.
+		const mine = '// mine\n';
+		await write(folder, FILES.main, mine);
+		await write(folder, FILES.codalJson, '{}\n');
 		await vscode.commands.executeCommand(COMMANDS.createProject, folder);
-		const entries = await vscode.workspace.fs.readDirectory(folder);
-		record('Create Project leaves an existing main.cpp alone', entries.length === 1 && entries[0][0] === 'main.cpp', entries.map(([name]) => name).join(', '));
+		record(
+			'Create Project leaves an existing project alone',
+			(await read(folder, FILES.main)) === mine && (await read(folder, FILES.codalJson)) === '{}\n',
+			await names()
+		);
+
+		// An older project keeps main.cpp at its root, and must not gain a second main() in source/.
+		await remove(folder);
+		await write(folder, 'main.cpp', mine);
+		await vscode.commands.executeCommand(COMMANDS.createProject, folder);
+		record('Create Project leaves a project with main.cpp at its root alone', (await names()) === 'main.cpp', await names());
 	} finally {
 		// The command opened the file; deleting it from under an editor logs an error.
 		await vscode.commands.executeCommand('workbench.action.closeAllEditors');

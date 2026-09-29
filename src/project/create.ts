@@ -4,11 +4,15 @@ import { pickFolder } from '../build/folder';
 import { PRODUCT } from '../config';
 import { isAbsent } from '../fs';
 import { log } from '../log';
-import { TEMPLATE } from './template';
+import { CODAL_JSON, FILES, TEMPLATE } from './template';
+
+/** Where a project made before the `source` folder keeps its program. */
+const FLAT_MAIN = 'main.cpp';
 
 /**
- * Puts a starting main.cpp in the folder and opens it. A folder passed as the
- * argument, as the Explorer and the tests do, wins over the pick.
+ * Puts `codal.json` and a starting `source/main.cpp` in the folder and opens the
+ * program. A folder passed as the argument, as the Explorer and the tests do,
+ * wins over the pick.
  */
 export async function createProject(target?: unknown): Promise<void> {
 	const picked = target instanceof vscode.Uri ? undefined : await pickFolder();
@@ -21,23 +25,33 @@ export async function createProject(target?: unknown): Promise<void> {
 	// `||`, not `??`: a path ending in a slash, such as a Windows drive root, splits to an empty name.
 	const named = picked?.name || folder.path.split('/').pop() || folder.path;
 
-	const main = vscode.Uri.joinPath(folder, 'main.cpp');
-	let present: boolean;
+	const main = vscode.Uri.joinPath(folder, FILES.main);
+	const codalJson = vscode.Uri.joinPath(folder, FILES.codalJson);
+	let existing: vscode.Uri | undefined;
+	let configured: boolean;
 	try {
-		present = await exists(main);
+		// Either place counts: a second main() beside an older project's would not link.
+		const flat = vscode.Uri.joinPath(folder, FLAT_MAIN);
+		existing = (await exists(main)) ? main : (await exists(flat)) ? flat : undefined;
+		configured = await exists(codalJson);
 	} catch (error) {
 		void vscode.window.showErrorMessage(
-			`${PRODUCT}: could not read ${main.path}, so nothing was written. ${error instanceof Error ? error.message : String(error)}`
+			`${PRODUCT}: could not read ${folder.path}, so nothing was written. ${error instanceof Error ? error.message : String(error)}`
 		);
 		return;
 	}
 
-	if (present) {
+	if (existing) {
 		void vscode.window.showInformationMessage(`${PRODUCT}: ${named} already has a main.cpp.`);
-	} else {
-		await vscode.workspace.fs.writeFile(main, new TextEncoder().encode(TEMPLATE));
-		log(`Created ${main.toString()}`);
+		await vscode.window.showTextDocument(existing);
+		return;
 	}
+
+	const encoder = new TextEncoder();
+	if (!configured) await vscode.workspace.fs.writeFile(codalJson, encoder.encode(CODAL_JSON));
+	await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(main, '..'));
+	await vscode.workspace.fs.writeFile(main, encoder.encode(TEMPLATE));
+	log(`Created ${main.toString()}`);
 	await vscode.window.showTextDocument(main);
 }
 
