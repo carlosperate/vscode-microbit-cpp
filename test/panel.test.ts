@@ -11,6 +11,7 @@ import { COMMANDS, CONTAINER_ID, MANAGER_EXTENSION, PRODUCT, VIEW_ID } from '../
 const container = manifest.contributes.viewsContainers.activitybar.find((entry) => entry.id === CONTAINER_ID);
 const views: { id: string; name: string; type?: string; when?: string }[] = manifest.contributes.views[CONTAINER_ID];
 const welcome = manifest.contributes.viewsWelcome;
+const lines = welcome.flatMap((entry) => entry.contents.split('\n'));
 
 /** Every `[label](command:id)` link in the welcome content, in the order a user reads them. */
 const buttons = welcome.flatMap((entry) =>
@@ -47,14 +48,22 @@ describe('the sidebar', () => {
 
 describe('the buttons', () => {
 	/** One link per line is what makes each button its own row across the panel. */
-	it('are one per row, in the order Build, Flash, serial terminal', () => {
+	it('are one per row, in the order Build, Flash, serial terminal, then the way to every other action', () => {
 		expect(welcome).toHaveLength(1);
-		expect(welcome[0]?.contents.split('\n')).toHaveLength(buttons.length);
+		expect(lines).toHaveLength(buttons.length);
 		expect(buttons.map((button) => button.command)).toEqual([
 			COMMANDS.build,
 			COMMANDS.flash,
 			'bbcmicrobit-manager.openTerminal',
+			'bbcmicrobit-manager.showMenu',
 		]);
+	});
+
+	/** VS Code draws a line that is only a link as a button, so a zero-width space ahead keeps the last one a link. */
+	it('end with Show all actions as a link, not a fourth button', () => {
+		const loneLink = /^\[[^\]]*\]\([^)]*\)$/;
+		expect(lines.map((line) => loneLink.test(line))).toEqual([true, true, true, false]);
+		expect(lines[3]).toBe('\u200b[Show all actions](command:bbcmicrobit-manager.showMenu)');
 	});
 
 	/**
@@ -74,6 +83,7 @@ describe('the buttons', () => {
 			'Build micro:bit C++ project',
 			'Flash C++ project',
 			'Open serial terminal',
+			'Show all actions',
 		]);
 	});
 });

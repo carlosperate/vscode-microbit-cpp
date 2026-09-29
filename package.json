@@ -33,7 +33,7 @@
     "esbuild": "^0.28.1",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11",
-    "vscode-bbcmicrobit-manager-api": "0.3.0"
+    "vscode-bbcmicrobit-manager-api": "0.3.1"
   },
   "engines": {
     "vscode": "^1.91.0"
@@ -111,7 +111,7 @@
     "viewsWelcome": [
       {
         "view": "bbcmicrobit-cpp.panel",
-        "contents": "[$(tools) Build micro:bit C++ project](command:bbcmicrobit-cpp.build)\n[$(zap) Flash C++ project](command:bbcmicrobit-cpp.flash)\n[$(terminal) Open serial terminal](command:bbcmicrobit-manager.openTerminal)"
+        "contents": "[$(tools) Build micro:bit C++ project](command:bbcmicrobit-cpp.build)\n[$(zap) Flash C++ project](command:bbcmicrobit-cpp.flash)\n[$(terminal) Open serial terminal](command:bbcmicrobit-manager.openTerminal)\n\u200b[Show all actions](command:bbcmicrobit-manager.showMenu)"
       }
     ],
     "configuration": {

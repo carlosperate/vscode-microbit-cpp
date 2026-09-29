@@ -37,7 +37,7 @@ export const OUTPUTS = { hex: 'MICROBIT.hex', map: 'MICROBIT.map' } as const;
 export const MANAGER_EXTENSION = 'carlosperate.bbcmicrobit-manager';
 
 /** The manager API this extension was built against, as the types package versions it. */
-export const MANAGER_API_VERSION = '0.3.0';
+export const MANAGER_API_VERSION = '0.3.1';
 
 /**
  * This extension's own activity bar container. No dot in it: the workbench

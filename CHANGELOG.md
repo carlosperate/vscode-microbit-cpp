@@ -4,6 +4,9 @@
 
 - Update button text
 - Fix project description images not loading on vscode.dev.
+- Added to the sidebar panel a "Show all actions" link under the buttons.
+  It opens the micro:bit manager's menu that can also be triggered from the
+  status bar.
 - `Create C++ Project` now writes a `codal.json` and a `source/main.cpp`, the
   layout of CODAL's own samples. A project that already has a `main.cpp`, in
   `source/` or beside `codal.json`, is left as it is.
