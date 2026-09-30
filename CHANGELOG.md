@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.3.1 - Unreleased
+## v0.3.1 - 2026/09/30
 
 - Update button text
 - Fix project description images not loading on vscode.dev.
