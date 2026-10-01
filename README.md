@@ -20,8 +20,9 @@ See [the limits](#limits-of-this-preview).
       layout of CODAL's own samples.
 2. Open the **BBC micro:bit C++** icon in the Activity Bar, and press
    **Build micro:bit C++ project**.
-3. `MICROBIT.hex` and `MICROBIT.map` appear beside your sources, and the
-   compiler's output is in the **BBC micro:bit C++** output channel.
+3. `MICROBIT.hex` and `MICROBIT.map` appear beside your sources.
+   The compiler's output is in the **BBC micro:bit C++** output channel, and the
+   errors and warnings appear in the **Problems** panel.
 4. Press **Flash C++ project hex** to build again and write it to a connected
    micro:bit V2, or copy `MICROBIT.hex` onto the `MICROBIT` drive yourself.
 5. **Open serial terminal** shows what the program prints.
@@ -62,7 +63,10 @@ so the flags and codal.json are the default ones that build uses.
   gets shows that configuration, and editing it has no effect for now.
 - **micro:bit V2 only.** CODAL builds for the V2's processor, so flashing
   refuses a V1 rather than writing an image it cannot run.
-- **Errors are text in the output channel**, not markers in the editor.
+- **Errors show after a build**, not as you type.
+- **CODAL's own warnings are left out.** Its headers raise about 45 warnings
+  for every file on every build, so the output channel counts them in one line
+  and the Problems panel shows only your files.
 - **Memory.** The compiler needs a bit less than 1 GB of RAM when it compiles,
   and keeps about half of that warm, so that later builds start and complete
   faster.

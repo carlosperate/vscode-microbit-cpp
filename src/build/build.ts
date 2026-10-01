@@ -1,6 +1,7 @@
 /**
  * The Build command: a workspace folder in, MICROBIT.hex beside its sources
- * out, and the compiler's own words in the output channel.
+ * out, the compiler's own words in the output channel and its errors in the
+ * Problems panel.
  */
 import * as vscode from 'vscode';
 
@@ -10,6 +11,7 @@ import { log, logRaw, showLog } from '../log';
 import { MAX_FILES, SOURCE, SOURCE_GLOB, UNSUPPORTED, excludeGlob, isInside, relativeTo } from './collect';
 import { BuildError, type Compiler } from './compiler';
 import { pickFolder } from './folder';
+import { firstError, problemsOf, shownOutput, type Found, type Place, type Problem } from './problems';
 import type { BuildOutcome, Files, StepReport } from './protocol';
 import { BuildRuns, type Run } from './runs';
 
@@ -47,8 +49,9 @@ const succeeded = (outcome: BuildOutcome): boolean => outcome.ok && outcome.hex 
 
 const took = (started: number) => `${((Date.now() - started) / 1000).toFixed(1)} s`;
 
-export function createBuild(compiler: Compiler): Builds {
+export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollection): Builds {
 	const runs = new BuildRuns();
+	const mark = marker(markers);
 	let last: BuildRecord | undefined;
 
 	/**
@@ -59,7 +62,7 @@ export function createBuild(compiler: Compiler): Builds {
 		folder: vscode.WorkspaceFolder,
 		run: Run,
 		onStep: (step: StepReport) => void
-	): Promise<BuildOutcome | null> {
+	): Promise<{ outcome: BuildOutcome; files: Files } | null> {
 		// A part-finished save leaves the sources in a state nothing on disk describes.
 		if (!(await saveEdits(folder))) return null;
 		const files = await collect(folder);
@@ -77,7 +80,7 @@ export function createBuild(compiler: Compiler): Builds {
 				return compiler.build(files, {
 					signal: run.signal,
 					onStep: (step) => {
-						report(step);
+						report(step, files);
 						onStep(step);
 						progress.report({ message: step.tool });
 					},
@@ -90,7 +93,7 @@ export function createBuild(compiler: Compiler): Builds {
 			log('Build cancelled');
 			return null;
 		}
-		return outcome;
+		return { outcome, files };
 	}
 
 	async function build({ quiet = false }: { quiet?: boolean } = {}): Promise<BuildResult> {
@@ -106,30 +109,34 @@ export function createBuild(compiler: Compiler): Builds {
 
 		const run = runs.start(folder.uri.toString());
 		const started = Date.now();
-		let output = '';
+		const steps: StepReport[] = [];
+		const output = () => steps.map((step) => step.stderr).join('');
+		// Outside the try, so a compile that finished keeps its errors on screen when writing its hex fails.
+		let found: Found = { placed: [], unplaced: [] };
+		const markFound = () => mark(folder, found.placed);
 		try {
-			const outcome = await attempt(folder, run, (step) => {
-				output += step.stderr;
-			});
-			const published = await settle(run, folder, outcome, started);
+			const built = await attempt(folder, run, (step) => steps.push(step));
+			if (built) found = problemsOf(steps, built.files);
+			const published = await settle(run, folder, built?.outcome ?? null, started, markFound);
 			// Publishing only says this build's work ran: a newer build can start while it writes.
 			if (!published || !run.owns()) {
 				log(`Build superseded by a newer one; ${published ? 'the newer build replaces what it wrote' : 'its outputs were not written'}`);
 				return SUPERSEDED;
 			}
-			if (!outcome) return NO_HEX; // nothing was built, and the outputs are already invalidated
+			if (!built) return NO_HEX; // nothing was built, and the outputs are already invalidated
 
-			last = { ok: succeeded(outcome), output, error: null };
-			announce(folder, outcome, started, quiet);
+			const { outcome } = built;
+			last = { ok: succeeded(outcome), output: output(), error: null };
+			announce(folder, outcome, started, quiet, { error: firstError(found), step: steps.find((step) => step.exitCode !== 0) });
 			return outcome.hex !== null && succeeded(outcome) ? { hex: outcome.hex } : NO_HEX;
 		} catch (error) {
 			const aborted = error instanceof BuildError && error.aborted;
 			const message = error instanceof Error ? error.message : String(error);
 			log(aborted ? 'Build cancelled' : `Build failed after ${took(started)}: ${message}`);
-			if (!(await settle(run, folder, null, started)) || !run.owns()) return SUPERSEDED;
+			if (!(await settle(run, folder, null, started, markFound)) || !run.owns()) return SUPERSEDED;
 			if (aborted) return NO_HEX;
 
-			last = { ok: false, output, error: message };
+			last = { ok: false, output: output(), error: message };
 			showLog();
 			void vscode.window.showErrorMessage(`${PRODUCT}: build failed. ${message}`);
 			return NO_HEX;
@@ -144,15 +151,43 @@ export function createBuild(compiler: Compiler): Builds {
 /**
  * The one place a folder's outputs change. The newest build writes its hex;
  * every other ending removes what an earlier build left, so the hex beside the
- * sources always describes them. False when a newer build owns the outputs now.
+ * sources always describes them. Its markers go with it, a failed build's
+ * included. False when a newer build owns the outputs now.
  */
-function settle(
-	run: Run,
-	folder: vscode.WorkspaceFolder,
-	outcome: BuildOutcome | null,
-	started: number
-): Promise<boolean> {
-	return run.publish(() => (outcome && succeeded(outcome) ? write(folder, outcome, started) : invalidate(folder)));
+function settle(run: Run, folder: vscode.WorkspaceFolder, outcome: BuildOutcome | null, started: number, mark: () => void): Promise<boolean> {
+	return run.publish(async () => {
+		mark(); // first, so a hex that cannot be written still leaves the errors to read
+		await (outcome && succeeded(outcome) ? write(folder, outcome, started) : invalidate(folder));
+	});
+}
+
+const SEVERITY = {
+	error: vscode.DiagnosticSeverity.Error,
+	warning: vscode.DiagnosticSeverity.Warning,
+	remark: vscode.DiagnosticSeverity.Information,
+} as const;
+
+/** Each folder's markers replace only what its own last build set, not a nested folder's. */
+function marker(markers: vscode.DiagnosticCollection): (folder: vscode.WorkspaceFolder, problems: readonly Problem[]) => void {
+	const marked = new Map<string, vscode.Uri[]>();
+	return (folder, problems) => {
+		const uriOf = (file: string) => vscode.Uri.joinPath(folder.uri, ...file.split('/'));
+		const range = (place: Place) => new vscode.Range(place.line, place.start, place.line, place.end);
+		const uris = problems.map((problem) => uriOf(problem.file));
+		// One `set`, which clears each `undefined` entry and merges the entries that share a file.
+		const entries: [vscode.Uri, vscode.Diagnostic[] | undefined][] = (marked.get(folder.uri.toString()) ?? []).map((uri) => [uri, undefined]);
+		problems.forEach((problem, index) => {
+			const diagnostic = new vscode.Diagnostic(range(problem), problem.message, SEVERITY[problem.severity]);
+			diagnostic.source = 'clang';
+			if (problem.code) diagnostic.code = problem.code;
+			diagnostic.relatedInformation = problem.related.map(
+				(note) => new vscode.DiagnosticRelatedInformation(new vscode.Location(uriOf(note.file), range(note)), note.message)
+			);
+			entries.push([uris[index], [diagnostic]]);
+		});
+		marked.set(folder.uri.toString(), uris);
+		if (entries.length > 0) markers.set(entries);
+	};
 }
 
 async function write(folder: vscode.WorkspaceFolder, outcome: BuildOutcome, started: number): Promise<void> {
@@ -179,7 +214,14 @@ async function remove(uri: vscode.Uri): Promise<void> {
 	}
 }
 
-function announce(folder: vscode.WorkspaceFolder, outcome: BuildOutcome, started: number, quiet: boolean): void {
+/** `error` is quoted when there is one, since an error with no file, such as a full flash, reaches no other panel. */
+function announce(
+	folder: vscode.WorkspaceFolder,
+	outcome: BuildOutcome,
+	started: number,
+	quiet: boolean,
+	{ error, step }: { error: string | null; step: StepReport | undefined }
+): void {
 	if (succeeded(outcome)) {
 		if (quiet) return;
 		void vscode.window
@@ -187,10 +229,9 @@ function announce(folder: vscode.WorkspaceFolder, outcome: BuildOutcome, started
 			.then((choice) => choice && showLog());
 		return;
 	}
-	const failed = outcome.lastStep;
-	log(`Build failed after ${took(started)}: ${failed?.tool ?? 'the build'} exited with ${failed?.exitCode ?? 'an error'}`);
+	log(`Build failed after ${took(started)}: ${step?.tool ?? 'the build'} exited with ${step?.exitCode ?? 'an error'}`);
 	showLog();
-	void vscode.window.showErrorMessage(`${PRODUCT}: build failed, see the output for the errors.`);
+	void vscode.window.showErrorMessage(`${PRODUCT}: build failed${error ? `: ${error}` : ', see the output for the errors.'}`);
 }
 
 /**
@@ -264,10 +305,12 @@ async function collect(folder: vscode.WorkspaceFolder): Promise<Files | null> {
 	return files;
 }
 
-/** One line per tool, the full command only when it failed, then whatever the tool said. */
-function report(step: StepReport): void {
-	const subject = step.args.find((arg) => SOURCE.test(arg))?.split('/').pop() ?? '';
+/** One line per tool, the full command only when it failed, then what the tool said of the user's code. */
+function report(step: StepReport, files: Files): void {
+	const subject = step.source ?? '';
 	if (step.exitCode === 0) log(`${step.tool} ${subject}`.trimEnd());
 	else log(`${step.tool} ${subject}: exit code ${step.exitCode}\n  ${[step.tool, ...step.args].join(' ')}`);
-	if (step.stderr) logRaw(step.stderr);
+	const { text, hidden } = shownOutput(step, files);
+	if (text) logRaw(text);
+	if (hidden) log(`${hidden} warning${hidden === 1 ? '' : 's'} in CODAL and library headers not shown`);
 }

@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import { createBuild, type Builds } from './build/build';
 import { Compiler, type CompilerWorker } from './build/compiler';
 import { flash } from './build/flash';
-import { COMMANDS, type CommandId } from './config';
+import { COMMANDS, SECTION, type CommandId } from './config';
 import { createLog, log } from './log';
 import { linkManager, type ManagerStatus } from './manager/link';
 import { menuGroup } from './manager/menu';
@@ -42,7 +42,9 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Exte
 	});
 	context.subscriptions.push({ dispose: () => compiler.dispose() });
 
-	const builds = createBuild(compiler);
+	const markers = vscode.languages.createDiagnosticCollection(SECTION);
+	context.subscriptions.push(markers);
+	const builds = createBuild(compiler, markers);
 	createPanel(context);
 	const manager = linkManager(context, menuGroup(context));
 

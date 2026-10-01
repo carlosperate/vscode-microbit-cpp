@@ -37,12 +37,11 @@ export function serve(port: Port): (reason: string) => void {
 		const controller = new AbortController();
 		builds.set(id, controller);
 		try {
-			const { ok, hex, map, steps } = await codal.compile(files, {
+			const { ok, hex, map } = await codal.compile(files, {
 				signal: controller.signal,
 				onStep: (step) => port.post({ type: 'step', id, step: strip(step) }),
 			});
-			const last = steps.length > 0 ? strip(steps[steps.length - 1]) : null;
-			port.post({ type: 'done', id, outcome: { ok, hex, map, lastStep: last } });
+			port.post({ type: 'done', id, outcome: { ok, hex, map } });
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			port.post({ type: 'failed', id, message, aborted: controller.signal.aborted });
@@ -74,4 +73,4 @@ export function serve(port: Port): (reason: string) => void {
 }
 
 /** The hex travels once, in the outcome, not again inside its step. */
-const strip = ({ tool, args, exitCode, stderr }: Step): StepReport => ({ tool, args, exitCode, stderr });
+const strip = ({ stdout, ...report }: Step): StepReport => report;

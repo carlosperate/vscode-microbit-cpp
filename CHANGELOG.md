@@ -1,5 +1,16 @@
 # Release Notes
 
+## v0.4.0 - Unreleased
+
+- Build errors and warnings in your own files appear in the Problems panel at
+  their line and column.
+  An error CODAL's headers report because of your code is shown at your line
+  that caused it, and a link error at the line that calls it.
+- The output channel leaves out the warnings CODAL's own headers raise, about
+  45 per file, and says how many it left out.
+- Every `.cpp` file is compiled before a build stops, so two broken files
+  show both files' errors.
+
 ## v0.3.1 - 2026/09/30
 
 - Update button text

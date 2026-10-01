@@ -17,13 +17,11 @@ export type Files = Record<string, Uint8Array>;
 export type StepReport = Omit<Step, 'stdout'>;
 
 /**
- * What a build produced. Deliberately not the package's `steps` and `output`: the host has already
- * had every step as its own message, so repeating them here would send the whole of the compiler's
- * stderr a second time. Only the last step survives, which is what describes a failure.
+ * What a build produced. Deliberately not the package's `steps`, `output` and `diagnostics`: the
+ * host has already had every step as its own message, so repeating them here would send the whole
+ * of the compiler's stderr a second time.
  */
-export interface BuildOutcome extends Omit<Result, 'steps' | 'output'> {
-	lastStep: StepReport | null;
-}
+export type BuildOutcome = Omit<Result, 'steps' | 'output' | 'diagnostics'>;
 
 export type ToWorker =
 	| { type: 'build'; id: number; files: Files }

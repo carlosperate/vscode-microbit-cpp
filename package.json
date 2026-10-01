@@ -22,8 +22,8 @@
     "desktop": "npm run manager && npm run build && node config/desktop.mjs --extension=.vscode-test/manager/extension"
   },
   "dependencies": {
-    "microbit-clang-wasm": "21.11.0-alpha.1",
-    "microbit-clang-wasm-codal": "0.305.0-alpha.1"
+    "microbit-clang-wasm": "21.11.0-alpha.2",
+    "microbit-clang-wasm-codal": "0.305.0-alpha.2"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
@@ -111,7 +111,7 @@
     "viewsWelcome": [
       {
         "view": "bbcmicrobit-cpp.panel",
-        "contents": "[$(tools) Build micro:bit C++ project](command:bbcmicrobit-cpp.build)\n[$(zap) Flash C++ project](command:bbcmicrobit-cpp.flash)\n[$(terminal) Open serial terminal](command:bbcmicrobit-manager.openTerminal)\n\u200b[Show all actions](command:bbcmicrobit-manager.showMenu)"
+        "contents": "[$(tools) Build micro:bit C++ project](command:bbcmicrobit-cpp.build)\n[$(zap) Flash C++ project](command:bbcmicrobit-cpp.flash)\n[$(terminal) Open serial terminal](command:bbcmicrobit-manager.openTerminal)\n​[Show all actions](command:bbcmicrobit-manager.showMenu)"
       }
     ],
     "configuration": {

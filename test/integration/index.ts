@@ -221,9 +221,24 @@ async function checkAnErrorIsReportedByFileAndLine(root: vscode.Uri, api: Extens
 		);
 		// A stale hex beside a failed build is the one that gets flashed by mistake.
 		record('a failed build removes the previous hex', !(await exists(vscode.Uri.joinPath(root, OUTPUTS.hex))), OUTPUTS.hex);
+
+		const marked = vscode.languages.getDiagnostics(bad);
+		const error = marked.find((diagnostic) => diagnostic.severity === vscode.DiagnosticSeverity.Error);
+		record(
+			'the error is in the Problems panel at its file, line and column',
+			error?.range.start.line === 0 && error.range.start.character === 'int main() { '.length && /'nope'/.test(error.message),
+			error ? `${error.range.start.line}:${error.range.start.character} ${error.message}` : `${marked.length} markers on bad.cpp`
+		);
+		// CODAL's headers exist only inside the compiler, so a marker on one would name no real file.
+		const markedFiles = vscode.languages.getDiagnostics().filter(([, list]) => list.length > 0).map(([uri]) => uri);
+		const missing = (await Promise.all(markedFiles.map(async (uri) => ((await exists(uri)) ? null : uri.path)))).filter(Boolean);
+		record('every marker is on a file the user has', missing.length === 0, missing.join(', ') || markedFiles.map((uri) => uri.path).join(', '));
 	} finally {
 		await remove(bad);
 	}
+	await vscode.commands.executeCommand(COMMANDS.build);
+	const left = vscode.languages.getDiagnostics(bad);
+	record('a build without the error removes its marker', api.builds.last()?.ok === true && left.length === 0, `${left.length} markers on bad.cpp`);
 }
 
 /**

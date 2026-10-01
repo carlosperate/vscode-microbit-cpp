@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { BuildError, Compiler, type CompilerOptions, type CompilerWorker } from '../src/build/compiler';
 import type { BuildOutcome, FromWorker, ToWorker } from '../src/build/protocol';
 
-const OUTCOME: BuildOutcome = { ok: true, hex: ':00000001FF\n', map: '', lastStep: null };
+const OUTCOME: BuildOutcome = { ok: true, hex: ':00000001FF\n', map: '' };
 
 /** A worker whose replies the test writes; `sent` is what the host posted to it. */
 function fakeWorker() {
@@ -81,8 +81,8 @@ describe('Compiler', () => {
 		const steps: string[] = [];
 		const build = compiler.build({}, { onStep: (step) => steps.push(step.tool) });
 
-		reply({ type: 'step', id: 1, step: { tool: 'clang++', args: [], exitCode: 0, stderr: '' } });
-		reply({ type: 'step', id: 99, step: { tool: 'other', args: [], exitCode: 0, stderr: '' } });
+		reply({ type: 'step', id: 1, step: { source: 'main.cpp', tool: 'clang++', args: [], exitCode: 0, stderr: '', diagnostics: [] } });
+		reply({ type: 'step', id: 99, step: { source: null, tool: 'other', args: [], exitCode: 0, stderr: '', diagnostics: [] } });
 		reply({ type: 'done', id: 1, outcome: OUTCOME });
 
 		await build;
