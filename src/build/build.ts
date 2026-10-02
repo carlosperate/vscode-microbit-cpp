@@ -7,7 +7,8 @@ import * as vscode from 'vscode';
 
 import { OUTPUTS, PRODUCT, SECTION, SETTINGS } from '../config';
 import { isAbsent } from '../fs';
-import { log, logRaw, showLog } from '../log';
+import { log, logGap, logRaw, showLog } from '../log';
+import { FILES } from '../project/template';
 import { MAX_FILES, SOURCE, SOURCE_GLOB, UNSUPPORTED, excludeGlob, isInside, relativeTo } from './collect';
 import { BuildError, type Compiler } from './compiler';
 import { pickFolder } from './folder';
@@ -21,6 +22,8 @@ export interface BuildRecord {
 	/** Everything the tools wrote, gathered from the steps as they arrived. */
 	output: string;
 	error: string | null;
+	/** How many of CODAL's own steps ran, which is none unless codal.json asked for new settings. */
+	codal: number;
 }
 
 /**
@@ -68,7 +71,9 @@ export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollec
 		const files = await collect(folder);
 		if (!files) return null;
 
-		log(`Building ${folder.name}, ${Object.keys(files).length} files`);
+		const count = Object.keys(files).filter((name) => name !== FILES.codalJson).length;
+		log(`Building ${folder.name}, ${count} file${count === 1 ? '' : 's'}`);
+		const gap = spacer();
 		const outcome = await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
@@ -80,9 +85,11 @@ export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollec
 				return compiler.build(files, {
 					signal: run.signal,
 					onStep: (step) => {
+						const { codal } = step;
+						gap(codal ? 'codal' : step.source !== null ? 'file' : 'link');
 						report(step, files);
 						onStep(step);
-						progress.report({ message: step.tool });
+						progress.report({ message: codal ? `CODAL for ${FILES.codalJson} (${codal.done}/${codal.total})` : step.tool });
 					},
 				});
 			}
@@ -90,6 +97,7 @@ export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollec
 
 		// A cancelled build must not publish, even when it finished before the cancel arrived.
 		if (run.signal.aborted) {
+			logGap();
 			log('Build cancelled');
 			return null;
 		}
@@ -111,6 +119,7 @@ export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollec
 		const started = Date.now();
 		const steps: StepReport[] = [];
 		const output = () => steps.map((step) => step.stderr).join('');
+		const codal = () => steps.filter((step) => step.codal !== null).length;
 		// Outside the try, so a compile that finished keeps its errors on screen when writing its hex fails.
 		let found: Found = { placed: [], unplaced: [] };
 		const markFound = () => mark(folder, found.placed);
@@ -126,19 +135,20 @@ export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollec
 			if (!built) return NO_HEX; // nothing was built, and the outputs are already invalidated
 
 			const { outcome } = built;
-			last = { ok: succeeded(outcome), output: output(), error: null };
+			last = { ok: succeeded(outcome), output: output(), error: null, codal: codal() };
 			announce(folder, outcome, started, quiet, { error: firstError(found), step: steps.find((step) => step.exitCode !== 0) });
 			return outcome.hex !== null && succeeded(outcome) ? { hex: outcome.hex } : NO_HEX;
 		} catch (error) {
 			const aborted = error instanceof BuildError && error.aborted;
 			const message = error instanceof Error ? error.message : String(error);
+			logGap();
 			log(aborted ? 'Build cancelled' : `Build failed after ${took(started)}: ${message}`);
 			if (!(await settle(run, folder, null, started, markFound)) || !run.owns()) return SUPERSEDED;
 			if (aborted) return NO_HEX;
 
-			last = { ok: false, output: output(), error: message };
+			last = { ok: false, output: output(), error: message, codal: codal() };
 			showLog();
-			void vscode.window.showErrorMessage(`${PRODUCT}: build failed. ${message}`);
+			notify(vscode.window.showErrorMessage, `${PRODUCT}: build failed. ${message}`);
 			return NO_HEX;
 		} finally {
 			run.finish();
@@ -197,6 +207,7 @@ async function write(folder: vscode.WorkspaceFolder, outcome: BuildOutcome, star
 	const map = vscode.Uri.joinPath(folder.uri, OUTPUTS.map);
 	if (outcome.map !== null) await vscode.workspace.fs.writeFile(map, ENCODER.encode(outcome.map));
 	else await remove(map);
+	logGap();
 	log(`Build succeeded in ${took(started)}: ${OUTPUTS.hex} written, ${bytes.byteLength} bytes`);
 }
 
@@ -223,15 +234,23 @@ function announce(
 	{ error, step }: { error: string | null; step: StepReport | undefined }
 ): void {
 	if (succeeded(outcome)) {
-		if (quiet) return;
-		void vscode.window
-			.showInformationMessage(`${PRODUCT}: ${OUTPUTS.hex} written to ${folder.name} in ${took(started)}.`, 'Show Output')
-			.then((choice) => choice && showLog());
+		if (!quiet) notify(vscode.window.showInformationMessage, `${PRODUCT}: ${OUTPUTS.hex} written to ${folder.name} in ${took(started)}.`);
 		return;
 	}
+	logGap();
 	log(`Build failed after ${took(started)}: ${step?.tool ?? 'the build'} exited with ${step?.exitCode ?? 'an error'}`);
 	showLog();
-	void vscode.window.showErrorMessage(`${PRODUCT}: build failed${error ? `: ${error}` : ', see the output for the errors.'}`);
+	// Only codal.json can make CODAL fail to compile, and its errors name files the user does not have.
+	const cause = step?.codal ? `: CODAL did not compile with the settings in ${FILES.codalJson}` : '';
+	notify(vscode.window.showErrorMessage, `${PRODUCT}: build failed${cause}${error ? `: ${error}` : ', see the output for the errors.'}`);
+}
+
+/**
+ * The first line, which says what happened; the rest, such as JSON to write, is in the Output,
+ * which the button brings back even after the user has closed or covered it.
+ */
+function notify(show: (message: string, ...items: string[]) => Thenable<string | undefined>, text: string): void {
+	void show(text.split('\n')[0], 'Show Output').then((choice) => choice && showLog());
 }
 
 /**
@@ -302,15 +321,35 @@ async function collect(folder: vscode.WorkspaceFolder): Promise<Files | null> {
 	named.forEach(({ name }, index) => {
 		files[name] = contents[index];
 	});
+	// At the folder's root, as CODAL's own build reads it; the compiler package takes it from there.
+	try {
+		files[FILES.codalJson] = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder.uri, FILES.codalJson));
+	} catch (error) {
+		if (!isAbsent(error)) throw error;
+	}
 	return files;
 }
 
-/** One line per tool, the full command only when it failed, then what the tool said of the user's code. */
+/** A blank line before each block of a build's log: CODAL's, each of the user's files, the link. */
+function spacer(): (block: 'codal' | 'file' | 'link') => void {
+	let last: string | undefined;
+	return (block) => {
+		if (block !== last || block === 'file') logGap();
+		last = block;
+	};
+}
+
+/**
+ * One line per tool; for the user's files and any failure, the full command and what it printed.
+ * CODAL's warnings are no use to the user, so a CODAL file shows its output only when it fails.
+ */
 function report(step: StepReport, files: Files): void {
-	const subject = step.source ?? '';
-	if (step.exitCode === 0) log(`${step.tool} ${subject}`.trimEnd());
-	else log(`${step.tool} ${subject}: exit code ${step.exitCode}\n  ${[step.tool, ...step.args].join(' ')}`);
-	const { text, hidden } = shownOutput(step, files);
-	if (text) logRaw(text);
-	if (hidden) log(`${hidden} warning${hidden === 1 ? '' : 's'} in CODAL and library headers not shown`);
+	const { codal } = step;
+	if (codal?.done === 1) log(`Compiling CODAL for the settings in ${FILES.codalJson}, ${codal.total} steps: about 15 to 30 seconds, once per set of settings`);
+	const failed = step.exitCode !== 0;
+	log(`${step.tool} ${step.source ?? codal?.file ?? ''}`.trimEnd() + (failed ? `: exit code ${step.exitCode}` : ''));
+	if (step.source !== null || failed) log(`  ${[step.tool, ...step.args].join(' ')}`);
+	if (!codal) logRaw(step.stderr);
+	else if (failed) logRaw(shownOutput(step, files));
+	else if (codal.done === codal.total) log('CODAL compiled, and kept for further builds with these settings');
 }

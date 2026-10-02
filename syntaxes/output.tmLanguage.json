@@ -1,0 +1,43 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "BBC micro:bit C++ Output",
+	"scopeName": "source.bbcmicrobit-cpp-output",
+	"patterns": [
+		{
+			"comment": "The caret under the code Clang points at, green as in a terminal.",
+			"match": "^\\s*(?:\\d+\\s*)?\\|\\s+[\\^~][\\^~ ]*$",
+			"name": "markup.inserted"
+		},
+		{
+			"comment": "The rest of Clang's quoted code, left as it is even where it reads like a diagnostic. First, as patterns at one position are tried in order.",
+			"match": "^\\s*\\d*\\s*\\|.*$"
+		},
+		{
+			"comment": "Clang's and LLD's errors, and the build's own failures. The token scopes are the ones themes colour for log output.",
+			"match": "^(?:.*\\b(?:fatal )?error: .*|Build failed.*|.*: exit code \\d+|.* failed: .*)$",
+			"name": "token.error-token"
+		},
+		{
+			"match": "^.*\\bwarning: .*$",
+			"name": "token.warn-token"
+		},
+		{
+			"match": "^.*\\bnote: .*$",
+			"name": "token.info-token"
+		},
+		{
+			"match": "^Build succeeded.*$",
+			"name": "markup.inserted"
+		},
+		{
+			"comment": "The start of each command and each part of a build, in the log colour themes keep apart from errors, warnings and success.",
+			"match": "^(?:Running|Building|Compiling CODAL|CODAL compiled)\\b.*$",
+			"name": "token.debug-token"
+		},
+		{
+			"comment": "A tool's full command line, indented under it, which is long and seldom read.",
+			"match": "^  (?:clang\\+\\+|clang|ld\\.lld|llvm-[a-z]+) .*$",
+			"name": "comment.line"
+		}
+	]
+}

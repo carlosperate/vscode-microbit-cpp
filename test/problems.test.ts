@@ -22,7 +22,7 @@ const error = (fields: Partial<Diagnostic>): Diagnostic => ({
 	...fields,
 });
 const note = (file: string, line: number, column: number | null, message = 'n'): DiagnosticNote => ({ file, line, column, message });
-const step = (...diagnostics: (Diagnostic | OtherOutput)[]): StepReport => ({ source: null, tool: 'clang++', args: [], exitCode: 1, stderr: '', diagnostics });
+const step = (...diagnostics: (Diagnostic | OtherOutput)[]): StepReport => ({ source: null, tool: 'clang++', args: [], exitCode: 1, stderr: '', diagnostics, codal: null });
 const placed = (steps: StepReport[], files = FILES) => problemsOf(steps, files).placed;
 const INCLUDED = [{ file: 'codal/inc/MicroBit.h', line: 28 }, { file: 'source/main.cpp', line: 2 }];
 
@@ -112,7 +112,7 @@ describe('problemsOf', () => {
 		const warning = error({ severity: 'warning', file: 'source/./util.h', line: 1, column: 5, text: 'util.h warning\n' });
 
 		expect(placed([step(warning)], files)).toMatchObject([{ file: 'source/util.h', line: 0, start: 4 }]);
-		expect(shownOutput(step(warning), files).hidden).toBe(0);
+		expect(shownOutput(step(warning), files)).toBe('util.h warning\n');
 	});
 
 	it('keeps warnings in the user\'s files with their option, and leaves the headers\' out', () => {
@@ -124,7 +124,7 @@ describe('problemsOf', () => {
 });
 
 describe('shownOutput', () => {
-	it('drops the headers\' warnings from the log and counts them, keeping everything else as printed', () => {
+	it('drops the warnings in files the user does not have, keeping everything else as printed', () => {
 		const shown = shownOutput(
 			step(
 				error({ severity: 'warning', file: 'codal/inc/Pin.h', line: 9, column: 1, text: 'Pin.h warning\n' }),
@@ -135,7 +135,7 @@ describe('shownOutput', () => {
 			FILES
 		);
 
-		expect(shown).toEqual({ text: 'clang++: warning: unused argument\nmain.cpp error\n2 warnings and 1 error generated.\n', hidden: 1 });
+		expect(shown).toBe('clang++: warning: unused argument\nmain.cpp error\n2 warnings and 1 error generated.\n');
 	});
 });
 

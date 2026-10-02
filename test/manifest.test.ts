@@ -1,7 +1,10 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import manifest from '../package.json';
-import { COMMANDS, PRODUCT, SECTION, SETTINGS } from '../src/config';
+import { COMMANDS, OUTPUT_LANGUAGE, PRODUCT, SECTION, SETTINGS } from '../src/config';
+import grammar from '../syntaxes/output.tmLanguage.json';
 
 /**
  * VS Code reads the manifest and the code reads `src/config.ts`, so a command id
@@ -30,6 +33,13 @@ describe('the manifest and the code agree', () => {
 
 	it('names the product the same way in the manifest', () => {
 		expect(manifest.displayName).toBe(PRODUCT);
+	});
+
+	it('gives the output channel\'s language its grammar', () => {
+		expect(manifest.contributes.languages.map((language) => language.id)).toEqual([OUTPUT_LANGUAGE]);
+		const [entry] = manifest.contributes.grammars;
+		expect([entry.language, entry.scopeName]).toEqual([OUTPUT_LANGUAGE, grammar.scopeName]);
+		expect(existsSync(path.join(__dirname, '..', entry.path))).toBe(true);
 	});
 });
 

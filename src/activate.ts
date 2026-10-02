@@ -8,7 +8,7 @@ import { createBuild, type Builds } from './build/build';
 import { Compiler, type CompilerWorker } from './build/compiler';
 import { flash } from './build/flash';
 import { COMMANDS, SECTION, type CommandId } from './config';
-import { createLog, log } from './log';
+import { createLog, log, logGap } from './log';
 import { linkManager, type ManagerStatus } from './manager/link';
 import { menuGroup } from './manager/menu';
 import { createProject } from './project/create';
@@ -58,6 +58,7 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Exte
 	for (const [id, run] of Object.entries(commands)) {
 		context.subscriptions.push(
 			vscode.commands.registerCommand(id, async (...args: unknown[]) => {
+				logGap(2);
 				log(`Running ${id}`);
 				try {
 					await run(...args);

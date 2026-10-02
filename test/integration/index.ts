@@ -70,6 +70,7 @@ export async function run(): Promise<void> {
 	await checkAnErrorIsReportedByFileAndLine(root, api);
 	await checkUnsavedEditsAreBuilt(root, api);
 	await checkTheNewestBuildWins(root, api);
+	await checkCodalJsonSettingsTakeEffect(root, api);
 	await checkAFlashHandsTheManagerWhatItBuilt(api);
 	await checkAV1IsRefusedRatherThanFlashed(api);
 	await checkCreateProject(root);
@@ -290,6 +291,39 @@ async function checkTheNewestBuildWins(root: vscode.Uri, api: ExtensionApi): Pro
 		older.hex === undefined && older.superseded && newer.hex !== undefined,
 		`older: ${summariseResult(older)}; newer: ${summariseResult(newer)}`
 	);
+}
+
+/** Other settings compile CODAL in the worker once, and a codal.json the package refuses builds nothing. */
+async function checkCodalJsonSettingsTakeEffect(root: vscode.Uri, api: ExtensionApi): Promise<void> {
+	const { target, config } = JSON.parse(CODAL_JSON);
+	try {
+		await write(root, FILES.codalJson, JSON.stringify({ target, config: { ...config, MICROBIT_BLE_ENABLED: 1 } }, null, 4));
+		const started = Date.now();
+		await vscode.commands.executeCommand(COMMANDS.build);
+		const first = api.builds.last();
+		record(
+			'other settings in codal.json compile CODAL, then the program',
+			first?.ok === true && first.codal > 0 && (await exists(vscode.Uri.joinPath(root, OUTPUTS.hex))),
+			`ok=${String(first?.ok)}, ${first?.codal ?? 0} CODAL steps in ${Date.now() - started} ms ${first?.error ?? ''}`
+		);
+
+		await vscode.commands.executeCommand(COMMANDS.build);
+		const second = api.builds.last();
+		record('the same settings again reuse that CODAL', second?.ok === true && second.codal === 0, `${second?.codal ?? 'no'} CODAL steps`);
+
+		await write(root, FILES.codalJson, JSON.stringify({ target: { ...target, branch: 'master' }, config }, null, 4));
+		await vscode.commands.executeCommand(COMMANDS.build);
+		// The wording is the CODAL package's: here only that a line explains and the JSON to write follows.
+		const refused = api.builds.last();
+		const [explanation = '', ...detail] = (refused?.error ?? '').split('\n');
+		record(
+			'a codal.json naming another CODAL is refused with what to write',
+			refused?.ok === false && refused.codal === 0 && /"target"/.test(explanation) && detail.join('\n').includes(target.branch),
+			refused?.error ?? `ok=${String(refused?.ok)}`
+		);
+	} finally {
+		await write(root, FILES.codalJson, CODAL_JSON);
+	}
 }
 
 const summariseResult = (result: BuildResult) =>

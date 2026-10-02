@@ -2,10 +2,14 @@
 
 ## v0.4.0 - Unreleased
 
-- Build errors and warnings in your own files appear in the Problems panel at
-  their line and column.
-  An error CODAL's headers report because of your code is shown at your line
-  that caused it, and a link error at the line that calls it.
+- You can now change `codal.json` settings to rebuild CODAL.
+- A `codal.json` the build cannot follow (e.g. `target` for another CODAL
+  version) stops the build with an error message and "show output" button.
+- The output channel shows the full compiler output for your files which
+  might highlight issues from CODAL's headers included.
+  The Problems panel shows only issues with the workspace files.
+- The output channel is in colour: errors, warnings and notes in your theme's
+  colours, the long command lines dimmed. Blank lines to separate builds.
 - The output channel leaves out the warnings CODAL's own headers raise, about
   45 per file, and says how many it left out.
 - Every `.cpp` file is compiled before a build stops, so two broken files

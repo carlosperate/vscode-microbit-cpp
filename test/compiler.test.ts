@@ -81,8 +81,8 @@ describe('Compiler', () => {
 		const steps: string[] = [];
 		const build = compiler.build({}, { onStep: (step) => steps.push(step.tool) });
 
-		reply({ type: 'step', id: 1, step: { source: 'main.cpp', tool: 'clang++', args: [], exitCode: 0, stderr: '', diagnostics: [] } });
-		reply({ type: 'step', id: 99, step: { source: null, tool: 'other', args: [], exitCode: 0, stderr: '', diagnostics: [] } });
+		reply({ type: 'step', id: 1, step: { source: 'main.cpp', tool: 'clang++', args: [], exitCode: 0, stderr: '', diagnostics: [], codal: null } });
+		reply({ type: 'step', id: 99, step: { source: null, tool: 'other', args: [], exitCode: 0, stderr: '', diagnostics: [], codal: null } });
 		reply({ type: 'done', id: 1, outcome: OUTCOME });
 
 		await build;

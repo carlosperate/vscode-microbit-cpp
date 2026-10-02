@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "microbit-clang-wasm": "21.11.0-alpha.2",
-    "microbit-clang-wasm-codal": "0.305.0-alpha.2"
+    "microbit-clang-wasm-codal": "0.305.0-alpha.3"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
@@ -88,6 +88,21 @@
         "command": "bbcmicrobit-cpp.createProject",
         "title": "Create C++ Project",
         "category": "BBC micro:bit C++"
+      }
+    ],
+    "languages": [
+      {
+        "id": "bbcmicrobit-cpp-output",
+        "aliases": [
+          "BBC micro:bit C++ Output"
+        ]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bbcmicrobit-cpp-output",
+        "scopeName": "source.bbcmicrobit-cpp-output",
+        "path": "./syntaxes/output.tmLanguage.json"
       }
     ],
     "viewsContainers": {

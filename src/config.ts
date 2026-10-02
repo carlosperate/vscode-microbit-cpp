@@ -26,6 +26,9 @@ export const SETTINGS = {
  */
 export const PRODUCT = 'BBC micro:bit C++';
 
+/** The output channel's language, which the manifest gives a grammar so the log is in colour. */
+export const OUTPUT_LANGUAGE = 'bbcmicrobit-cpp-output';
+
 /** Written beside the sources; the hex name is the one the micro:bit's own tools expect. */
 export const OUTPUTS = { hex: 'MICROBIT.hex', map: 'MICROBIT.map' } as const;
 

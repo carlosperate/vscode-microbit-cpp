@@ -15,8 +15,8 @@ it('the bench is the project template, file for file', async () => {
 	expect(lines(await bench(FILES.codalJson))).toEqual(lines(CODAL_JSON));
 });
 
-/** Nothing reads codal.json yet, so all it can do is state the configuration the prebuilt CODAL has. */
-it('the default codal.json names the CODAL the recipe package ships', async () => {
+/** Any other settings would have the first build of a new project compile CODAL. */
+it('the default codal.json is the CODAL and the settings the recipe package ships prebuilt', async () => {
 	const recipe = JSON.parse(
 		await readFile(path.join(__dirname, '..', 'node_modules', 'microbit-clang-wasm-codal', 'package.json'), 'utf8')
 	);

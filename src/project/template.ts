@@ -18,7 +18,7 @@ int main() {
 }
 `;
 
-/** The configuration the prebuilt CODAL was made with. Nothing reads the file yet, so it can only say so. */
+/** The settings the prebuilt CODAL was compiled with, so a new project's first build compiles none of CODAL. */
 export const CODAL_JSON = `{
     "target": {
         "name": "codal-microbit-v2",

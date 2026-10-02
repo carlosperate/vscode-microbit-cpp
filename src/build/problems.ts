@@ -45,15 +45,14 @@ function usersName(files: Files, path: string): string | null {
 	return Object.prototype.hasOwnProperty.call(files, name) ? name : null;
 }
 
-/** A warning in a header the user does not own: CODAL's own raise about 45 per file, every build. */
+/** A warning in a file the user does not have, such as the dozens in each of CODAL's own files. */
 function isHidden(entry: Diagnostic | OtherOutput, files: Files): boolean {
 	return entry.severity !== null && entry.severity !== 'error' && entry.file !== null && usersName(files, entry.file) === null;
 }
 
-/** One step's output for the log, as the compiler printed it, less the headers' warnings. */
-export function shownOutput(step: StepReport, files: Files): { text: string; hidden: number } {
-	const shown = step.diagnostics.filter((entry) => !isHidden(entry, files));
-	return { text: shown.map((entry) => entry.text).join(''), hidden: step.diagnostics.length - shown.length };
+/** One step's output as the compiler printed it, less the warnings in files the user does not have. */
+export function shownOutput(step: StepReport, files: Files): string {
+	return step.diagnostics.filter((entry) => !isHidden(entry, files)).map((entry) => entry.text).join('');
 }
 
 export function problemsOf(steps: readonly StepReport[], files: Files): Found {
