@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.4.0 - Unreleased
+## v0.4.0 - 2026/10/02
 
 - You can now change `codal.json` settings to rebuild CODAL.
 - A `codal.json` the build cannot follow (e.g. `target` for another CODAL
