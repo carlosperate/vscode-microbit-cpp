@@ -305,6 +305,9 @@ async function checkCompletionsComeFromTheCompiler(root: vscode.Uri): Promise<vo
 	const editor = await vscode.window.showTextDocument(document);
 	// After `uBit.init();`, a declaration and then the line each check types into.
 	const line = 7;
+	// VS Code Web saves an edit after a second by default, and CI's completions take longer than that.
+	const settings = vscode.workspace.getConfiguration('files');
+	await settings.update('autoSave', 'off', vscode.ConfigurationTarget.Global);
 	await editor.edit((builder) => builder.insert(new vscode.Position(6, 0), '    int myOwnValue = 3;\n    \n'));
 	const labelOf = (item: vscode.CompletionItem) => (typeof item.label === 'string' ? item.label : item.label.label);
 	const complete = async (text: string, at = text.length) => {
@@ -337,6 +340,7 @@ async function checkCompletionsComeFromTheCompiler(root: vscode.Uri): Promise<vo
 		await vscode.commands.executeCommand('workbench.action.files.revert');
 		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
 		await vscode.workspace.fs.writeFile(main, original);
+		await settings.update('autoSave', undefined, vscode.ConfigurationTarget.Global);
 	}
 }
 
