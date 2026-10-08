@@ -6,7 +6,7 @@
 import { setAssetLoader } from 'microbit-clang-wasm';
 import { createCodal, type Step } from 'microbit-clang-wasm-codal';
 
-import type { Files, FromWorker, StepReport, ToWorker } from '../build/protocol';
+import type { CompletionReport, Files, FromWorker, Position, StepReport, ToWorker } from '../build/protocol';
 
 /** The worker global on the web, a `worker_threads` port on the desktop. */
 export interface Port {
@@ -31,24 +31,33 @@ export function serve(port: Port): (reason: string) => void {
 	// The toolchain names its files bare; the CODAL package's names already start with codal/.
 	setAssetLoader((name) => request(`toolchain/${name}`));
 	const codal = createCodal({ loadAsset: request });
-	const builds = new Map<number, AbortController>();
+	const running = new Map<number, AbortController>();
 
-	async function run(id: number, files: Files): Promise<void> {
+	/** A build or a completion, which answers with its own message or with `failed`. */
+	async function answer(id: number, work: (signal: AbortSignal) => Promise<FromWorker>): Promise<void> {
 		const controller = new AbortController();
-		builds.set(id, controller);
+		running.set(id, controller);
 		try {
-			const { ok, hex, map } = await codal.compile(files, {
-				signal: controller.signal,
-				onStep: (step) => port.post({ type: 'step', id, step: strip(step) }),
-			});
-			port.post({ type: 'done', id, outcome: { ok, hex, map } });
+			port.post(await work(controller.signal));
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			port.post({ type: 'failed', id, message, aborted: controller.signal.aborted });
 		} finally {
-			builds.delete(id);
+			running.delete(id);
 		}
 	}
+
+	const build = (id: number, files: Files) =>
+		answer(id, async (signal) => {
+			const { ok, hex, map } = await codal.compile(files, { signal, onStep: (step) => port.post({ type: 'step', id, step: strip(step) }) });
+			return { type: 'done', id, outcome: { ok, hex, map } };
+		});
+
+	const complete = (id: number, files: Files, at: Position) =>
+		answer(id, async (signal) => {
+			const { completions } = await codal.complete(files, { ...at, signal });
+			return { type: 'completed', id, completions: completions.map(({ text: _, ...record }) => record as CompletionReport) };
+		});
 
 	port.onMessage((message) => {
 		switch (message.type) {
@@ -60,10 +69,13 @@ export function serve(port: Port): (reason: string) => void {
 				return;
 			}
 			case 'cancel':
-				builds.get(message.id)?.abort();
+				running.get(message.id)?.abort();
 				return;
 			case 'build':
-				void run(message.id, message.files);
+				void build(message.id, message.files);
+				return;
+			case 'complete':
+				void complete(message.id, message.files, message.at);
 		}
 	});
 

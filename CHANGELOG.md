@@ -1,5 +1,12 @@
 # Release Notes
 
+## v0.5.0 - Unreleased
+
+- Completions from compiler, picking a function types its required arguments.
+- The completions list follows `codal.json`, so `DEVICE_BLE: 0` takes
+  `uBit.bleManager` out of it without rebuilding CODAL.
+- Inside `#include "…"` the list holds the files that can be included.
+
 ## v0.4.0 - 2026/10/02
 
 - You can now change `codal.json` settings to rebuild CODAL.

@@ -157,6 +157,19 @@ describe('Compiler', () => {
 		expect((await next).ok).toBe(true);
 	});
 
+	it('asks the worker to complete and resolves with its records, in the same id space as builds', async () => {
+		const { compiler, sent, reply } = harness();
+		const build = compiler.build({});
+		const completion = compiler.complete({}, { file: 'main.cpp', line: 4, column: 10 });
+
+		expect(sent).toContainEqual({ type: 'complete', id: 2, files: {}, at: { file: 'main.cpp', line: 4, column: 10 } });
+		reply({ type: 'completed', id: 2, completions: [{ kind: 'keyword', name: 'int' }] });
+		reply({ type: 'done', id: 1, outcome: OUTCOME });
+
+		expect(await completion).toEqual([{ kind: 'keyword', name: 'int' }]);
+		expect((await build).ok).toBe(true);
+	});
+
 	it('dispose terminates the worker and fails what was pending', async () => {
 		const { compiler, worker } = harness();
 		const pending = compiler.build({});

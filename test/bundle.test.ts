@@ -113,7 +113,7 @@ it('ships the compiler assets where the worker asks for them, inside the size bu
 
 it('gathers every shipped component\'s notice beside the assets', async () => {
 	const licenses = path.join(outDir, 'dist', 'licenses');
-	for (const name of ['toolchain/LICENSES', 'toolchain/LICENSE.txt', 'toolchain/sysroot/COPYING.NEWLIB', 'toolchain/sysroot/COPYING.LIBGLOSS', 'toolchain/sysroot/LIBCXX-LICENSE.txt', 'codal/LICENSES']) {
+	for (const name of ['toolchain/LICENSES.md', 'toolchain/LICENSE.txt', 'toolchain/sysroot/COPYING.NEWLIB', 'toolchain/sysroot/COPYING.LIBGLOSS', 'toolchain/sysroot/LIBCXX-LICENSE.txt', 'codal/LICENSES']) {
 		expect((await stat(path.join(licenses, name))).size, name).toBeGreaterThan(0);
 	}
 });

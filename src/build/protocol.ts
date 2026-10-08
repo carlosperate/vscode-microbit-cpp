@@ -4,7 +4,7 @@
  * by name. On the desktop it could read them itself; paying one hop there keeps
  * the two hosts differing only in how they start a worker.
  */
-import type { Result, Step } from 'microbit-clang-wasm-codal';
+import type { CompleteOptions, CompletionRecord, Result, Step } from 'microbit-clang-wasm-codal';
 
 /**
  * User files by workspace-relative path. **Key order is link order**, because the compiler package
@@ -23,8 +23,15 @@ export type StepReport = Omit<Step, 'stdout'>;
  */
 export type BuildOutcome = Omit<Result, 'steps' | 'output' | 'diagnostics'>;
 
+/** Each kind of completion record without the line it was read from, which a list never shows. */
+export type CompletionReport = CompletionRecord extends infer Kind ? (Kind extends unknown ? Omit<Kind, 'text'> : never) : never;
+
+/** Where to complete: the file as named in `files`, a line from 1 and a column in bytes from 1. */
+export type Position = Omit<CompleteOptions, 'signal'>;
+
 export type ToWorker =
 	| { type: 'build'; id: number; files: Files }
+	| { type: 'complete'; id: number; files: Files; at: Position }
 	| { type: 'cancel'; id: number }
 	/** The reply to an asset request: the bytes, or why there are none. */
 	| { type: 'asset'; id: number; bytes?: Uint8Array; error?: string };
@@ -36,6 +43,7 @@ export type FromWorker =
 	| { type: 'asset'; id: number; name: string }
 	| { type: 'step'; id: number; step: StepReport }
 	| { type: 'done'; id: number; outcome: BuildOutcome }
+	| { type: 'completed'; id: number; completions: CompletionReport[] }
 	| { type: 'failed'; id: number; message: string; aborted: boolean }
 	/** The worker itself is broken rather than one build, so the host drops it and starts another. */
 	| { type: 'crash'; reason: string };

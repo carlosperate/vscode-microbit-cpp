@@ -129,7 +129,7 @@ export async function copyLicences(outDir = root) {
 	await rm(out, { recursive: true, force: true });
 	await mkdir(path.join(out, 'toolchain', 'sysroot'), { recursive: true });
 	await mkdir(path.join(out, 'codal'), { recursive: true });
-	await copyFile(path.join(TOOLCHAIN, 'LICENSES'), path.join(out, 'toolchain', 'LICENSES'));
+	await copyFile(path.join(TOOLCHAIN, 'LICENSES.md'), path.join(out, 'toolchain', 'LICENSES.md'));
 	await copyFile(path.join(TOOLCHAIN, 'LICENSE.txt'), path.join(out, 'toolchain', 'LICENSE.txt'));
 	await copyFile(path.join(CODAL, 'LICENSES'), path.join(out, 'codal', 'LICENSES'));
 

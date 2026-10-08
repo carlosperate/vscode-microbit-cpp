@@ -272,17 +272,26 @@ async function saveEdits(folder: vscode.WorkspaceFolder): Promise<boolean> {
 	return false;
 }
 
-/** Every C++ file under the folder, or null after saying why there is nothing to build. */
-async function collect(folder: vscode.WorkspaceFolder): Promise<Files | null> {
+/**
+ * Every C++ file under the folder, less the excludes, and one more than `MAX_FILES` at most so a
+ * caller can tell there are too many. `unsupported` holds the excludes a single glob cannot carry.
+ */
+export async function findSources(folder: vscode.WorkspaceFolder): Promise<{ uris: vscode.Uri[]; unsupported: string[] }> {
 	const own = vscode.workspace.getConfiguration(SECTION, folder.uri).get<unknown>(SETTINGS.buildExclude);
 	const shared = vscode.workspace.getConfiguration('files', folder.uri).get<unknown>('exclude');
 	const { glob, unsupported } = excludeGlob(own, shared);
-	if (unsupported.length) log(`Excludes a single glob cannot hold, ignored: ${unsupported.join(', ')}`);
 	const uris = await vscode.workspace.findFiles(
 		new vscode.RelativePattern(folder, SOURCE_GLOB),
 		glob === null ? null : new vscode.RelativePattern(folder, glob),
 		MAX_FILES + 1
 	);
+	return { uris, unsupported };
+}
+
+/** Every C++ file under the folder, or null after saying why there is nothing to build. */
+async function collect(folder: vscode.WorkspaceFolder): Promise<Files | null> {
+	const { uris, unsupported } = await findSources(folder);
+	if (unsupported.length) log(`Excludes a single glob cannot hold, ignored: ${unsupported.join(', ')}`);
 
 	if (uris.length > MAX_FILES) {
 		void vscode.window.showErrorMessage(
@@ -307,6 +316,15 @@ async function collect(folder: vscode.WorkspaceFolder): Promise<Files | null> {
 		return null;
 	}
 
+	return readFiles(folder, uris);
+}
+
+/** The files by name, then the folder's codal.json if it has one, each read by `read`. */
+export async function readFiles(
+	folder: vscode.WorkspaceFolder,
+	uris: vscode.Uri[],
+	read: (uri: vscode.Uri) => Thenable<Uint8Array> = (uri) => vscode.workspace.fs.readFile(uri)
+): Promise<Files> {
 	// `findFiles` promises no order, and the recipe links the objects in the order it is handed.
 	const named = uris
 		.map((uri) => {
@@ -315,7 +333,7 @@ async function collect(folder: vscode.WorkspaceFolder): Promise<Files | null> {
 			return { uri, name };
 		})
 		.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
-	const contents = await Promise.all(named.map(({ uri }) => vscode.workspace.fs.readFile(uri)));
+	const contents = await Promise.all(named.map(({ uri }) => read(uri)));
 
 	const files: Files = {};
 	named.forEach(({ name }, index) => {
@@ -323,7 +341,7 @@ async function collect(folder: vscode.WorkspaceFolder): Promise<Files | null> {
 	});
 	// At the folder's root, as CODAL's own build reads it; the compiler package takes it from there.
 	try {
-		files[FILES.codalJson] = await vscode.workspace.fs.readFile(vscode.Uri.joinPath(folder.uri, FILES.codalJson));
+		files[FILES.codalJson] = await read(vscode.Uri.joinPath(folder.uri, FILES.codalJson));
 	} catch (error) {
 		if (!isAbsent(error)) throw error;
 	}

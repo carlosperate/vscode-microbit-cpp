@@ -11,6 +11,12 @@ export const SOURCE_GLOB = '**/*.{cpp,cc,cxx,c,s,S,asm,h,hpp,hh,hxx,inc}';
 /** What the recipe compiles; the rest only has to be present. */
 export const SOURCE = /\.(cpp|cc|cxx)$/i;
 
+/** What a source can include. */
+export const HEADER = /\.(h|hh|hpp|hxx|inc)$/i;
+
+/** A source or a header, which a completion parses on its own as C++. */
+export const COMPLETABLE = /\.(cc|cpp|cxx|h|hh|hpp|hxx)$/i;
+
 // C and assembly. Mirrors the compiler package, which refuses these itself and stays the authority;
 // checking here as well is what makes the refusal immediate and specific about which files.
 export const UNSUPPORTED = /\.(c|s|asm)$/i;

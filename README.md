@@ -32,6 +32,22 @@ Every button is also a command, so `BBC micro:bit C++: Build C++ Project` and
 `BBC micro:bit C++: Flash C++ Project` do the same from the Command Palette, which
 opens with `Ctrl/Cmd`+`Shift`+`P` or `F1`.
 
+## Completions
+
+Typing `uBit.` lists everything `uBit` has, each with its type, its parameters
+and their defaults, and the first sentence of CODAL's own documentation.
+Variables, classes and namespaces in scope complete too, and so do the CODAL
+names passed to `uBit`'s functions, such as `MICROBIT_ID_BUTTON_A` and
+`MICROBIT_BUTTON_EVT_CLICK`.
+Picking a function types its required arguments, ready to fill in.
+
+The list comes from the same compiler and settings as a build, `codal.json`
+included, so it holds what will compile. It works in your `.cpp` files and
+headers, as you type, without saving, and lists the files an `#include` can
+name.
+The first list after opening VS Code waits for the compiler to load,
+a second or so; after that each takes a few tenths of a second.
+
 ## The board
 
 Connecting, flashing and the serial terminal are managed by the
@@ -93,6 +109,11 @@ settings matches what CODAL's own build makes of them.
 - **micro:bit V2 only.** CODAL builds for the V2's processor, so flashing
   refuses a V1 rather than writing an image it cannot run.
 - **Errors show after a build**, not as you type.
+- **No parameter hints** while typing a call's arguments yet; the completion
+  list shows every parameter before you pick a function.
+- **A line left unfinished above the cursor**, such as a lone `uBit.` with no
+  `;`, stops completions below it until it is finished: C++ reads it as
+  continuing onto the next line.
 - **CODAL's warnings are only in the output channel.** Its headers raise about
   45 warnings while compiling each of your files; the output channel shows
   them with everything else the compiler printed and each file's full command,

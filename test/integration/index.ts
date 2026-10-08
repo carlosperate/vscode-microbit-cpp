@@ -70,6 +70,7 @@ export async function run(): Promise<void> {
 	await checkAnErrorIsReportedByFileAndLine(root, api);
 	await checkUnsavedEditsAreBuilt(root, api);
 	await checkTheNewestBuildWins(root, api);
+	await checkCompletionsComeFromTheCompiler(root);
 	await checkCodalJsonSettingsTakeEffect(root, api);
 	await checkAFlashHandsTheManagerWhatItBuilt(api);
 	await checkAV1IsRefusedRatherThanFlashed(api);
@@ -291,6 +292,52 @@ async function checkTheNewestBuildWins(root: vscode.Uri, api: ExtensionApi): Pro
 		older.hex === undefined && older.superseded && newer.hex !== undefined,
 		`older: ${summariseResult(older)}; newer: ${summariseResult(newer)}`
 	);
+}
+
+/**
+ * Completions through the real provider and worker, of the editor's unsaved text: CODAL's members
+ * with their documentation and every parameter, a variable only that text declares, a CODAL macro.
+ */
+async function checkCompletionsComeFromTheCompiler(root: vscode.Uri): Promise<void> {
+	const main = vscode.Uri.joinPath(root, FILES.main);
+	const original = await vscode.workspace.fs.readFile(main);
+	const document = await vscode.workspace.openTextDocument(main);
+	const editor = await vscode.window.showTextDocument(document);
+	// After `uBit.init();`, a declaration and then the line each check types into.
+	const line = 7;
+	await editor.edit((builder) => builder.insert(new vscode.Position(6, 0), '    int myOwnValue = 3;\n    \n'));
+	const labelOf = (item: vscode.CompletionItem) => (typeof item.label === 'string' ? item.label : item.label.label);
+	const complete = async (text: string, at = text.length) => {
+		await editor.edit((builder) => builder.replace(document.lineAt(line).range, text));
+		const started = Date.now();
+		const list = await vscode.commands.executeCommand<vscode.CompletionList>('vscode.executeCompletionItemProvider', main, new vscode.Position(line, at));
+		return { items: list.items, took: `${Date.now() - started} ms, ${list.items.length} items` };
+	};
+	try {
+		const display = await complete('    uBit.display.');
+		const scroll = display.items.find((item) => labelOf(item) === 'scroll');
+		const label = scroll && typeof scroll.label !== 'string' ? scroll.label : undefined;
+		record(
+			'uBit.display. lists scroll with CODAL\'s documentation and every parameter',
+			document.isDirty && /^Scrolls the given string/.test(String(scroll?.documentation)) && /delay/.test(label?.detail ?? ''),
+			`${display.took}, unsaved ${String(document.isDirty)}; scroll${label?.detail ?? ''}: ${String(scroll?.documentation)}`
+		);
+		const own = await complete('    myOwn');
+		record('a variable only the unsaved text declares completes', own.items.some((item) => labelOf(item) === 'myOwnValue'), own.took);
+		const macro = await complete('    MICROBIT_ID_');
+		record('a CODAL event ID completes', macro.items.some((item) => labelOf(item) === 'MICROBIT_ID_BUTTON_A'), macro.took);
+		const called = await complete('    uBit.display.scr("hi");', '    uBit.display.scr'.length);
+		const named = called.items.find((item) => labelOf(item) === 'scroll')?.insertText;
+		record('a function whose brackets already follow is inserted by name alone', named === 'scroll', `inserts ${JSON.stringify(named)}`);
+		const include = await complete('#include "MicroBit.');
+		const header = include.items.find((item) => labelOf(item) === 'MicroBit.h');
+		const from = header?.range instanceof vscode.Range ? header.range.start.character : undefined;
+		record('an included file\'s name replaces everything after the quote', from === '#include "'.length, `${include.took}, from character ${String(from)}`);
+	} finally {
+		await vscode.commands.executeCommand('workbench.action.files.revert');
+		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+		await vscode.workspace.fs.writeFile(main, original);
+	}
 }
 
 /** Other settings compile CODAL in the worker once, and a codal.json the package refuses builds nothing. */
