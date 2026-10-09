@@ -1,6 +1,6 @@
 # Release Notes
 
-## v0.5.0 - Unreleased
+## v0.5.0 - 2026/10/09
 
 - Completions from compiler, picking a function types its required arguments.
 - The completions list follows `codal.json`, so `DEVICE_BLE: 0` takes
