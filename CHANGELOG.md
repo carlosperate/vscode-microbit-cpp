@@ -1,5 +1,11 @@
 # Release Notes
 
+## v0.5.1 - Unreleased
+
+- Ignore private underscore members when deciding regenerate list.
+- Faster completions by updating `microbit-clang-wasm-codal` to version
+  0.305.0-alpha.5
+
 ## v0.5.0 - 2026/10/09
 
 - Completions from compiler, picking a function types its required arguments.

@@ -96,6 +96,11 @@ describe('itemsOf', () => {
 		expect(isIncomplete(MEMBERS, member)).toBe(false);
 	});
 
+	it('asks again for a public underscore member, not for a private one no underscore would show', () => {
+		expect(isIncomplete(records('COMPLETION: _i2c : [#MicroBitI2C#]_i2c'), member)).toBe(true);
+		expect(isIncomplete(records('COMPLETION: _buffer (Inaccessible) : [#uint8_t *#]_buffer'), member)).toBe(false);
+	});
+
 	it('inserts only a function\'s name where it is named rather than called', () => {
 		const scroll = itemsOf(MEMBERS, { ...member, byName: true }).find((item) => item.name === 'scroll');
 		expect(scroll).toMatchObject({ insert: 'scroll', snippet: false });

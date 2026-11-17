@@ -55,9 +55,10 @@ export function itemsOf(records: readonly CompletionReport[], context: Context):
 	return items;
 }
 
-/** With nothing typed, a list that left out `_` names is asked for again once one is typed. */
-export const isIncomplete = (records: readonly CompletionReport[], { typed }: Context): boolean =>
-	typed === '' && records.some((record) => 'name' in record && record.name.startsWith('_'));
+/** With nothing typed, a list that left out `_` names it would show is asked for again once one is typed. */
+export const isIncomplete = (records: readonly CompletionReport[], context: Context): boolean =>
+	context.typed === '' &&
+	records.some((record) => 'name' in record && record.name.startsWith('_') && (record.kind !== 'candidate' || shown(record, context)));
 
 const ENCODER = new TextEncoder();
 
