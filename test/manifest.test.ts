@@ -3,6 +3,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import manifest from '../package.json';
+import { DEBUG_LEVELS, DEFAULT_DEBUG_LEVEL } from '../src/build/levels';
 import { COMMANDS, OUTPUT_LANGUAGE, PRODUCT, SECTION, SETTINGS } from '../src/config';
 import grammar from '../syntaxes/output.tmLanguage.json';
 
@@ -29,6 +30,15 @@ describe('the manifest and the code agree', () => {
 	it('declares every setting the code reads, under the section', () => {
 		const declared = Object.keys(manifest.contributes.configuration.properties);
 		expect(declared.sort()).toEqual(Object.values(SETTINGS).map((key) => `${SECTION}.${key}`).sort());
+	});
+
+	it('offers the debug levels the code builds at, each with its line, -O0 by default', () => {
+		const setting = manifest.contributes.configuration.properties[`${SECTION}.${SETTINGS.debugOptimisation}`];
+		expect(setting.enum).toEqual(Object.keys(DEBUG_LEVELS));
+		expect(setting.enumDescriptions).toEqual(Object.values(DEBUG_LEVELS));
+		expect(setting.default).toBe(DEFAULT_DEBUG_LEVEL);
+		// Saved per folder, which a setting of any narrower scope cannot be.
+		expect(setting.scope).toBe('resource');
 	});
 
 	it('names the product the same way in the manifest', () => {

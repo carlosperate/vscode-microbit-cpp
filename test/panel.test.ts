@@ -48,22 +48,23 @@ describe('the sidebar', () => {
 
 describe('the buttons', () => {
 	/** One link per line is what makes each button its own row across the panel. */
-	it('are one per row, in the order Build, Flash, serial terminal, then the way to every other action', () => {
+	it('are one per row, in the order Build, Flash, serial terminal, debug build, then the way to every other action', () => {
 		expect(welcome).toHaveLength(1);
 		expect(lines).toHaveLength(buttons.length);
 		expect(buttons.map((button) => button.command)).toEqual([
 			COMMANDS.build,
 			COMMANDS.flash,
 			'bbcmicrobit-manager.openTerminal',
+			COMMANDS.debugBuild,
 			'bbcmicrobit-manager.showMenu',
 		]);
 	});
 
 	/** VS Code draws a line that is only a link as a button, so a zero-width space ahead keeps the last one a link. */
-	it('end with Show all actions as a link, not a fourth button', () => {
+	it('end with Show all actions as a link, not a fifth button', () => {
 		const loneLink = /^\[[^\]]*\]\([^)]*\)$/;
-		expect(lines.map((line) => loneLink.test(line))).toEqual([true, true, true, false]);
-		expect(lines[3]).toBe('\u200b[Show all actions](command:bbcmicrobit-manager.showMenu)');
+		expect(lines.map((line) => loneLink.test(line))).toEqual([true, true, true, true, false]);
+		expect(lines[4]).toBe('\u200b[Show all actions](command:bbcmicrobit-manager.showMenu)');
 	});
 
 	/**
@@ -83,6 +84,7 @@ describe('the buttons', () => {
 			'Build micro:bit C++ project',
 			'Flash C++ project',
 			'Open serial terminal',
+			'Debug build',
 			'Show all actions',
 		]);
 	});

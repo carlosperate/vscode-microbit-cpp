@@ -8,6 +8,7 @@ dist/
 test/integration/dist/
 test/workspace/*.hex
 test/workspace/*.map
+test/workspace/*.elf
 test/workspace/.vscode/
 # Left behind only if an integration run dies midway.
 test/workspace/bad.cpp

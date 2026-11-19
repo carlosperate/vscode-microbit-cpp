@@ -3,6 +3,8 @@
  * reads are injected, so the two entry points differ only in what they pass
  * here, and the tests pass a scripted worker.
  */
+import type { Optimisation } from 'microbit-clang-wasm-codal';
+
 import type { BuildOutcome, CompletionReport, Files, FromWorker, Position, StepReport, ToWorker } from './protocol';
 
 /** What each host wraps its native worker in. */
@@ -23,6 +25,7 @@ export interface CompilerOptions {
 export interface BuildOptions {
 	onStep?: (step: StepReport) => void;
 	signal?: AbortSignal;
+	optimisation?: Optimisation;
 }
 
 /** A build or a completion that ended without an answer: cancelled, refused or crashed. */
@@ -49,8 +52,8 @@ export class Compiler {
 
 	constructor(private readonly options: CompilerOptions) {}
 
-	build(files: Files, { onStep, signal }: BuildOptions = {}): Promise<BuildOutcome> {
-		return this.#request((id) => ({ type: 'build', id, files }), signal, onStep);
+	build(files: Files, { onStep, signal, optimisation }: BuildOptions = {}): Promise<BuildOutcome> {
+		return this.#request((id) => ({ type: 'build', id, files, optimisation }), signal, onStep);
 	}
 
 	/** Starts the worker if no build has yet, so the first completion waits for the compiler to load. */

@@ -20,7 +20,7 @@ See [the limits](#limits-of-this-preview).
       layout of CODAL's own samples.
 2. Open the **BBC micro:bit C++** icon in the Activity Bar, and press
    **Build micro:bit C++ project**.
-3. `MICROBIT.hex` and `MICROBIT.map` appear beside your sources.
+3. `MICROBIT.hex`, `MICROBIT.map` and `MICROBIT.elf` appear beside your sources.
    The compiler's output is in the **BBC micro:bit C++** output channel, with
    errors, warnings and notes in your theme's colours, and the errors and
    warnings in your own files also appear in the **Problems** panel.
@@ -47,6 +47,18 @@ headers, as you type, without saving, and lists the files an `#include` can
 name.
 The first list after opening VS Code waits for the compiler to load,
 a second or so; after that each takes a few tenths of a second.
+
+## Debug builds
+
+Every build writes `MICROBIT.elf` beside the hex, a file with the debug
+information for the built-in debugger.
+
+Debug build compiles the project without optimisation (`-O0`),
+so that the debugger can better step through the code and show variable states.
+
+`BBC micro:bit C++: Set Debug Build Optimisation...` chooses another level for
+the folder, from `-O0` to `-Oz`, and saves it in the folder's settings as
+`bbcmicrobit-cpp.build.debugOptimisation`.
 
 ## The board
 

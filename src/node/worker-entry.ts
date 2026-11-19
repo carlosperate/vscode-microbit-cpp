@@ -7,7 +7,7 @@ if (!parentPort) throw new Error('this script only runs inside a worker thread')
 const port = parentPort;
 
 serve({
-	post: (message) => port.postMessage(message),
+	post: (message, transfer = []) => port.postMessage(message, transfer),
 	onMessage: (listener) => {
 		port.on('message', listener);
 	},

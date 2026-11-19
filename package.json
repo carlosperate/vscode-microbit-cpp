@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "microbit-clang-wasm": "21.11.0-alpha.3",
-    "microbit-clang-wasm-codal": "0.305.0-alpha.5"
+    "microbit-clang-wasm-codal": "0.305.0-alpha.6"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
@@ -85,6 +85,16 @@
         "category": "BBC micro:bit C++"
       },
       {
+        "command": "bbcmicrobit-cpp.debugBuild",
+        "title": "Debug Build C++ Project",
+        "category": "BBC micro:bit C++"
+      },
+      {
+        "command": "bbcmicrobit-cpp.setDebugOptimisation",
+        "title": "Set Debug Build Optimisation...",
+        "category": "BBC micro:bit C++"
+      },
+      {
         "command": "bbcmicrobit-cpp.createProject",
         "title": "Create C++ Project",
         "category": "BBC micro:bit C++"
@@ -126,7 +136,7 @@
     "viewsWelcome": [
       {
         "view": "bbcmicrobit-cpp.panel",
-        "contents": "[$(tools) Build micro:bit C++ project](command:bbcmicrobit-cpp.build)\n[$(zap) Flash C++ project](command:bbcmicrobit-cpp.flash)\n[$(terminal) Open serial terminal](command:bbcmicrobit-manager.openTerminal)\n​[Show all actions](command:bbcmicrobit-manager.showMenu)"
+        "contents": "[$(tools) Build micro:bit C++ project](command:bbcmicrobit-cpp.build)\n[$(zap) Flash C++ project](command:bbcmicrobit-cpp.flash)\n[$(terminal) Open serial terminal](command:bbcmicrobit-manager.openTerminal)\n[$(bug) Debug build](command:bbcmicrobit-cpp.debugBuild)\n​[Show all actions](command:bbcmicrobit-manager.showMenu)"
       }
     ],
     "configuration": {
@@ -145,6 +155,30 @@
           ],
           "scope": "resource",
           "markdownDescription": "Glob patterns for files under the workspace folder that Build leaves out, on top of `#files.exclude#`. The default keeps out the `libraries` and `build` folders of a CODAL checkout, whose sources the extension already carries prebuilt."
+        },
+        "bbcmicrobit-cpp.build.debugOptimisation": {
+          "type": "string",
+          "enum": [
+            "-O0",
+            "-Og",
+            "-O1",
+            "-O2",
+            "-O3",
+            "-Os",
+            "-Oz"
+          ],
+          "enumDescriptions": [
+            "No optimisation: every line and variable as written. Best for stepping through.",
+            "Optimised with debugging in mind; this Clang treats it as -O1.",
+            "Light optimisation: some variables are optimised out.",
+            "As Build: small functions inlined, many variables optimised out.",
+            "More optimisation than -O2, for speed.",
+            "Optimised for size.",
+            "Optimised for size, harder than -Os."
+          ],
+          "default": "-O0",
+          "scope": "resource",
+          "markdownDescription": "The level a debug build compiles your own files at. Build and Flash always use `-O2`, and CODAL keeps the level it was built at."
         }
       }
     }

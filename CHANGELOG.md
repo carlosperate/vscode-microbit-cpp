@@ -1,10 +1,13 @@
 # Release Notes
 
-## v0.5.1 - Unreleased
+## v0.6.0 - Unreleased
 
+- Every build creates `MICROBIT.elf` beside `MICROBIT.hex`, for debuggers.
+- New "Debug build" button, compiling the project at `-O0`.
+- New "Set Debug Build Optimisation..." command to choose that level.
 - Ignore private underscore members when deciding regenerate list.
 - Faster completions by updating `microbit-clang-wasm-codal` to version
-  0.305.0-alpha.5
+  0.305.0-alpha.6
 
 ## v0.5.0 - 2026/10/09
 

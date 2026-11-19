@@ -4,7 +4,7 @@
  * by name. On the desktop it could read them itself; paying one hop there keeps
  * the two hosts differing only in how they start a worker.
  */
-import type { CompleteOptions, CompletionRecord, Result, Step } from 'microbit-clang-wasm-codal';
+import type { CompleteOptions, CompletionRecord, Optimisation, Result, Step } from 'microbit-clang-wasm-codal';
 
 /**
  * User files by workspace-relative path. **Key order is link order**, because the compiler package
@@ -19,7 +19,7 @@ export type StepReport = Omit<Step, 'stdout'>;
 /**
  * What a build produced. Deliberately not the package's `steps`, `output` and `diagnostics`: the
  * host has already had every step as its own message, so repeating them here would send the whole
- * of the compiler's stderr a second time.
+ * of the compiler's stderr a second time. The ELF arrives transferred, not copied.
  */
 export type BuildOutcome = Omit<Result, 'steps' | 'output' | 'diagnostics'>;
 
@@ -30,7 +30,8 @@ export type CompletionReport = CompletionRecord extends infer Kind ? (Kind exten
 export type Position = Omit<CompleteOptions, 'signal'>;
 
 export type ToWorker =
-	| { type: 'build'; id: number; files: Files }
+	/** `optimisation` is for the user's files, the recipe's own level when absent. */
+	| { type: 'build'; id: number; files: Files; optimisation?: Optimisation }
 	| { type: 'complete'; id: number; files: Files; at: Position }
 	| { type: 'cancel'; id: number }
 	/** The reply to an asset request: the bytes, or why there are none. */

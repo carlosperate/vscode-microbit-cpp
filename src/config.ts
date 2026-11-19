@@ -6,6 +6,8 @@
 export const COMMANDS = {
 	build: 'bbcmicrobit-cpp.build',
 	flash: 'bbcmicrobit-cpp.flash',
+	debugBuild: 'bbcmicrobit-cpp.debugBuild',
+	setDebugOptimisation: 'bbcmicrobit-cpp.setDebugOptimisation',
 	createProject: 'bbcmicrobit-cpp.createProject',
 } as const;
 
@@ -18,6 +20,7 @@ export const EXTENSION_ID = 'carlosperate.bbcmicrobit-cpp';
 export const SECTION = 'bbcmicrobit-cpp';
 export const SETTINGS = {
 	buildExclude: 'build.exclude',
+	debugOptimisation: 'build.debugOptimisation',
 } as const;
 
 /**
@@ -30,7 +33,7 @@ export const PRODUCT = 'BBC micro:bit C++';
 export const OUTPUT_LANGUAGE = 'bbcmicrobit-cpp-output';
 
 /** Written beside the sources; the hex name is the one the micro:bit's own tools expect. */
-export const OUTPUTS = { hex: 'MICROBIT.hex', map: 'MICROBIT.map' } as const;
+export const OUTPUTS = { hex: 'MICROBIT.hex', map: 'MICROBIT.map', elf: 'MICROBIT.elf' } as const;
 
 /**
  * The extension that owns the board, the serial terminal and the micro:bit

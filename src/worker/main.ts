@@ -4,13 +4,13 @@
  * name, and the loaded compiler stays here for the life of the worker.
  */
 import { setAssetLoader } from 'microbit-clang-wasm';
-import { createCodal, type Step } from 'microbit-clang-wasm-codal';
+import { createCodal, type Optimisation, type Step } from 'microbit-clang-wasm-codal';
 
 import type { CompletionReport, Files, FromWorker, Position, StepReport, ToWorker } from '../build/protocol';
 
 /** The worker global on the web, a `worker_threads` port on the desktop. */
 export interface Port {
-	post(message: FromWorker): void;
+	post(message: FromWorker, transfer?: ArrayBuffer[]): void;
 	onMessage(listener: (message: ToWorker) => void): void;
 }
 
@@ -34,11 +34,12 @@ export function serve(port: Port): (reason: string) => void {
 	const running = new Map<number, AbortController>();
 
 	/** A build or a completion, which answers with its own message or with `failed`. */
-	async function answer(id: number, work: (signal: AbortSignal) => Promise<FromWorker>): Promise<void> {
+	async function answer(id: number, work: (signal: AbortSignal) => Promise<{ reply: FromWorker; transfer?: ArrayBuffer[] }>): Promise<void> {
 		const controller = new AbortController();
 		running.set(id, controller);
 		try {
-			port.post(await work(controller.signal));
+			const { reply, transfer } = await work(controller.signal);
+			port.post(reply, transfer);
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
 			port.post({ type: 'failed', id, message, aborted: controller.signal.aborted });
@@ -47,16 +48,18 @@ export function serve(port: Port): (reason: string) => void {
 		}
 	}
 
-	const build = (id: number, files: Files) =>
+	const build = (id: number, files: Files, optimisation?: Optimisation) =>
 		answer(id, async (signal) => {
-			const { ok, hex, map } = await codal.compile(files, { signal, onStep: (step) => port.post({ type: 'step', id, step: strip(step) }) });
-			return { type: 'done', id, outcome: { ok, hex, map } };
+			const onStep = (step: Step) => port.post({ type: 'step', id, step: strip(step) });
+			const { ok, hex, elf, map } = await codal.compile(files, { signal, optimisation, onStep });
+			// The CODAL package's own copy, about 2 MB, so it moves rather than copies.
+			return { reply: { type: 'done', id, outcome: { ok, hex, elf, map } }, transfer: elf ? [elf.buffer as ArrayBuffer] : [] };
 		});
 
 	const complete = (id: number, files: Files, at: Position) =>
 		answer(id, async (signal) => {
 			const { completions } = await codal.complete(files, { ...at, signal });
-			return { type: 'completed', id, completions: completions.map(({ text: _, ...record }) => record as CompletionReport) };
+			return { reply: { type: 'completed', id, completions: completions.map(({ text: _, ...record }) => record as CompletionReport) } };
 		});
 
 	port.onMessage((message) => {
@@ -72,7 +75,7 @@ export function serve(port: Port): (reason: string) => void {
 				running.get(message.id)?.abort();
 				return;
 			case 'build':
-				void build(message.id, message.files);
+				void build(message.id, message.files, message.optimisation);
 				return;
 			case 'complete':
 				void complete(message.id, message.files, message.at);

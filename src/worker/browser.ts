@@ -2,7 +2,7 @@
 import { serve } from './main';
 
 const fail = serve({
-	post: (message) => self.postMessage(message),
+	post: (message, transfer = []) => self.postMessage(message, transfer),
 	onMessage: (listener) => {
 		self.onmessage = (event: MessageEvent) => listener(event.data);
 	},

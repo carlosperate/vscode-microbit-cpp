@@ -8,12 +8,14 @@
  * Every check reports before it asserts, so a failing run says which assumption
  * broke rather than stopping at the first one.
  */
+import type { Optimisation } from 'microbit-clang-wasm-codal';
 import * as vscode from 'vscode';
 
 import type { BoardInfo, HexSource, MicrobitManagerApi } from 'vscode-bbcmicrobit-manager-api';
 
 import type { ExtensionApi } from '../../src/activate';
 import type { BuildResult } from '../../src/build/build';
+import { saveDebugLevel } from '../../src/build/debug';
 import { flash } from '../../src/build/flash';
 import {
 	COMMANDS,
@@ -67,6 +69,7 @@ export async function run(): Promise<void> {
 	await checkTheSidebarIsItsOwn();
 	await checkTheManagerIsLinked(api);
 	await checkABuildWritesTheHex(root, api);
+	await checkADebugBuildFollowsItsLevel(root, api);
 	await checkAnErrorIsReportedByFileAndLine(root, api);
 	await checkUnsavedEditsAreBuilt(root, api);
 	await checkTheNewestBuildWins(root, api);
@@ -173,7 +176,7 @@ function checkTheButtonsRunRealCommands(manager: MicrobitManagerApi): void {
  */
 async function resetBench(root: vscode.Uri): Promise<void> {
 	await Promise.all(
-		[OUTPUTS.hex, OUTPUTS.map, 'bad.cpp', 'new-project'].map((name) => remove(vscode.Uri.joinPath(root, name)))
+		[...Object.values(OUTPUTS), 'bad.cpp', 'new-project'].map((name) => remove(vscode.Uri.joinPath(root, name)))
 	);
 	await write(root, FILES.codalJson, CODAL_JSON);
 	await write(root, FILES.main, TEMPLATE);
@@ -185,9 +188,14 @@ async function write(folder: vscode.Uri, file: string, text: string): Promise<vo
 	await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(text));
 }
 
-const read = async (folder: vscode.Uri, file: string) => {
+const readBytes = async (folder: vscode.Uri, file: string) => {
 	const uri = vscode.Uri.joinPath(folder, file);
-	return (await exists(uri)) ? decode(await vscode.workspace.fs.readFile(uri)) : undefined;
+	return (await exists(uri)) ? vscode.workspace.fs.readFile(uri) : undefined;
+};
+
+const read = async (folder: vscode.Uri, file: string) => {
+	const bytes = await readBytes(folder, file);
+	return bytes && decode(bytes);
 };
 
 async function checkABuildWritesTheHex(root: vscode.Uri, api: ExtensionApi): Promise<void> {
@@ -207,6 +215,46 @@ async function checkABuildWritesTheHex(root: vscode.Uri, api: ExtensionApi): Pro
 	const looksLikeHex = written.startsWith(':') && /:00000001FF\s*$/.test(written) && written.length > 100_000;
 	record('a build writes MICROBIT.hex', looksLikeHex, `${written.length} characters in ${elapsed} ms, first build in this host`);
 	record('the build writes the link map beside it', await exists(map), map.path);
+	const elf = await readBytes(root, OUTPUTS.elf);
+	record('the build writes MICROBIT.elf beside it', isElf(elf), `${elf?.byteLength ?? 0} bytes, compiled at ${String(last.optimisation)}`);
+}
+
+const isElf = (bytes: Uint8Array | undefined) => bytes !== undefined && decode(bytes.subarray(0, 4)) === '\x7fELF';
+
+/** The setting is per folder, so the gate saves it as the command does and leaves the bench without it. */
+async function checkADebugBuildFollowsItsLevel(root: vscode.Uri, api: ExtensionApi): Promise<void> {
+	const folder = vscode.workspace.getWorkspaceFolder(root)!;
+	const setLevel = (level: Optimisation | undefined) => saveDebugLevel(folder, level);
+	const optimised = await read(root, OUTPUTS.hex);
+	try {
+		await setLevel(undefined);
+		await vscode.commands.executeCommand(COMMANDS.debugBuild);
+		const debug = api.builds.last();
+		const hex = await read(root, OUTPUTS.hex);
+		record(
+			'a debug build compiles the user\'s files at -O0 by default, into a different hex',
+			debug?.ok === true && debug.optimisation === '-O0' && hex !== undefined && optimised !== undefined && hex !== optimised,
+			`ok=${String(debug?.ok)} at ${String(debug?.optimisation)}, hex ${hex === optimised ? 'unchanged' : 'changed'} ${debug?.error ?? ''}`
+		);
+		record('a debug build writes MICROBIT.elf too', isElf(await readBytes(root, OUTPUTS.elf)), OUTPUTS.elf);
+
+		await setLevel('-O1');
+		await vscode.commands.executeCommand(COMMANDS.debugBuild);
+		const chosen = api.builds.last();
+		record('a debug build follows the folder\'s level', chosen?.ok === true && chosen.optimisation === '-O1', `ok=${String(chosen?.ok)} at ${String(chosen?.optimisation)}`);
+
+		// Flash builds through the same path as Build, without the debug flag.
+		await vscode.commands.executeCommand(COMMANDS.build);
+		const plain = api.builds.last();
+		const same = (await read(root, OUTPUTS.hex)) === optimised;
+		record(
+			'Build stays at -O2 while the folder has a debug level, giving the same hex as before',
+			plain?.ok === true && plain.optimisation === '-O2' && same,
+			`ok=${String(plain?.ok)} at ${String(plain?.optimisation)}, hex ${same ? 'the same' : 'different'}`
+		);
+	} finally {
+		await setLevel(undefined);
+	}
 }
 
 async function checkAnErrorIsReportedByFileAndLine(root: vscode.Uri, api: ExtensionApi): Promise<void> {
@@ -221,8 +269,9 @@ async function checkAnErrorIsReportedByFileAndLine(root: vscode.Uri, api: Extens
 			last?.ok === false && /bad\.cpp:1:\d+: error:/.test(output),
 			output.split('\n').find((line: string) => line.includes('error:')) ?? `ok=${String(last?.ok)} ${last?.error ?? ''}`
 		);
-		// A stale hex beside a failed build is the one that gets flashed by mistake.
-		record('a failed build removes the previous hex', !(await exists(vscode.Uri.joinPath(root, OUTPUTS.hex))), OUTPUTS.hex);
+		// A stale hex beside a failed build is the one that gets flashed by mistake, and a stale ELF the one debugged.
+		const left = (await Promise.all(Object.values(OUTPUTS).map(async (name) => ((await exists(vscode.Uri.joinPath(root, name))) ? name : null)))).filter(Boolean);
+		record('a failed build removes the previous hex, map and ELF', left.length === 0, left.length ? `left: ${left.join(', ')}` : Object.values(OUTPUTS).join(', '));
 
 		const marked = vscode.languages.getDiagnostics(bad);
 		const error = marked.find((diagnostic) => diagnostic.severity === vscode.DiagnosticSeverity.Error);

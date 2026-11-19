@@ -8,7 +8,7 @@ import type * as vscode from 'vscode';
 
 import { COMMANDS, CONTAINER_ID, PRODUCT } from '../config';
 
-const MENU: readonly string[] = [COMMANDS.build, COMMANDS.flash, COMMANDS.createProject];
+const MENU: readonly string[] = Object.values(COMMANDS);
 
 export function menuGroup(context: vscode.ExtensionContext): MenuGroup {
 	const contributes = context.extension.packageJSON?.contributes;

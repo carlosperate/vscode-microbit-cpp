@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { BuildError, Compiler, type CompilerOptions, type CompilerWorker } from '../src/build/compiler';
 import type { BuildOutcome, FromWorker, ToWorker } from '../src/build/protocol';
 
-const OUTCOME: BuildOutcome = { ok: true, hex: ':00000001FF\n', map: '' };
+const OUTCOME: BuildOutcome = { ok: true, hex: ':00000001FF\n', elf: new Uint8Array([0x7f, 0x45, 0x4c, 0x46]), map: '' };
 
 /** A worker whose replies the test writes; `sent` is what the host posted to it. */
 function fakeWorker() {
@@ -74,6 +74,17 @@ describe('Compiler', () => {
 		await settle();
 
 		expect(sent).toContainEqual({ type: 'asset', id: 1, error: 'Error: gone' });
+	});
+
+	it('asks for a build at the level given, and the recipe\'s own without one', () => {
+		const { compiler, sent } = harness();
+		void compiler.build({ 'main.cpp': new Uint8Array() }, { optimisation: '-O0' });
+		void compiler.build({});
+
+		expect(sent).toEqual([
+			{ type: 'build', id: 1, files: { 'main.cpp': new Uint8Array() }, optimisation: '-O0' },
+			{ type: 'build', id: 2, files: {}, optimisation: undefined },
+		]);
 	});
 
 	it('forwards each step to the build it belongs to', async () => {

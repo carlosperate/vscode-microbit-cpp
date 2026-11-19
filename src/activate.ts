@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { createBuild, type Builds } from './build/build';
 import { registerCompletions } from './build/complete';
 import { Compiler, type CompilerWorker } from './build/compiler';
+import { setDebugLevel } from './build/debug';
 import { flash } from './build/flash';
 import { COMMANDS, SECTION, type CommandId } from './config';
 import { createLog, log, logGap } from './log';
@@ -55,6 +56,10 @@ export function activateHost(context: vscode.ExtensionContext, host: Host): Exte
 			await builds.build();
 		},
 		[COMMANDS.flash]: flash(manager, builds),
+		[COMMANDS.debugBuild]: async () => {
+			await builds.build({ debug: true });
+		},
+		[COMMANDS.setDebugOptimisation]: setDebugLevel,
 		[COMMANDS.createProject]: createProject,
 	};
 	for (const [id, run] of Object.entries(commands)) {

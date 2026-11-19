@@ -3,6 +3,7 @@
  * out, the compiler's own words in the output channel and its errors in the
  * Problems panel.
  */
+import type { Optimisation } from 'microbit-clang-wasm-codal';
 import * as vscode from 'vscode';
 
 import { OUTPUTS, PRODUCT, SECTION, SETTINGS } from '../config';
@@ -11,6 +12,7 @@ import { log, logGap, logRaw, showLog } from '../log';
 import { FILES } from '../project/template';
 import { MAX_FILES, SOURCE, SOURCE_GLOB, UNSUPPORTED, excludeGlob, isInside, relativeTo } from './collect';
 import { BuildError, type Compiler } from './compiler';
+import { debugLevel } from './debug';
 import { pickFolder } from './folder';
 import { firstError, problemsOf, shownOutput, type Found, type Place, type Problem } from './problems';
 import type { BuildOutcome, Files, StepReport } from './protocol';
@@ -24,6 +26,8 @@ export interface BuildRecord {
 	error: string | null;
 	/** How many of CODAL's own steps ran, which is none unless codal.json asked for new settings. */
 	codal: number;
+	/** The `-O` flag the user's files compiled with, read from the commands that ran. */
+	optimisation: string | null;
 }
 
 /**
@@ -36,9 +40,10 @@ export type BuildResult = { hex: string } | { hex: undefined; superseded: boolea
 export interface Builds {
 	/**
 	 * `quiet` is for a caller that reports success itself; a failure is still
-	 * announced, since only this side knows what went wrong.
+	 * announced, since only this side knows what went wrong. `debug` compiles the
+	 * user's files at the folder's debug level.
 	 */
-	build(options?: { quiet?: boolean }): Promise<BuildResult>;
+	build(options?: { quiet?: boolean; debug?: boolean }): Promise<BuildResult>;
 	last(): BuildRecord | undefined;
 }
 
@@ -52,6 +57,8 @@ const succeeded = (outcome: BuildOutcome): boolean => outcome.ok && outcome.hex 
 
 const took = (started: number) => `${((Date.now() - started) / 1000).toFixed(1)} s`;
 
+const debugNote = (level: Optimisation | undefined) => (level ? `, a debug build at ${level}` : '');
+
 export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollection): Builds {
 	const runs = new BuildRuns();
 	const mark = marker(markers);
@@ -64,6 +71,7 @@ export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollec
 	async function attempt(
 		folder: vscode.WorkspaceFolder,
 		run: Run,
+		level: Optimisation | undefined,
 		onStep: (step: StepReport) => void
 	): Promise<{ outcome: BuildOutcome; files: Files } | null> {
 		// A part-finished save leaves the sources in a state nothing on disk describes.
@@ -72,18 +80,19 @@ export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollec
 		if (!files) return null;
 
 		const count = Object.keys(files).filter((name) => name !== FILES.codalJson).length;
-		log(`Building ${folder.name}, ${count} file${count === 1 ? '' : 's'}`);
+		log(`Building ${folder.name}, ${count} file${count === 1 ? '' : 's'}${debugNote(level)}`);
 		const gap = spacer();
 		const outcome = await vscode.window.withProgress(
 			{
 				location: vscode.ProgressLocation.Notification,
-				title: `${PRODUCT}: building ${folder.name}`,
+				title: `${PRODUCT}: building ${folder.name}${debugNote(level)}`,
 				cancellable: true,
 			},
 			(progress, token) => {
 				token.onCancellationRequested(run.cancel);
 				return compiler.build(files, {
 					signal: run.signal,
+					optimisation: level,
 					onStep: (step) => {
 						const { codal } = step;
 						gap(codal ? 'codal' : step.source !== null ? 'file' : 'link');
@@ -104,27 +113,27 @@ export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollec
 		return { outcome, files };
 	}
 
-	async function build({ quiet = false }: { quiet?: boolean } = {}): Promise<BuildResult> {
-		const folder = await pickFolder();
-		if (!folder) {
-			// Dismissing the folder pick is an answer, not a mistake, so only an empty window is told
-			// to open something.
-			if ((vscode.workspace.workspaceFolders ?? []).length === 0) {
-				void vscode.window.showErrorMessage(`${PRODUCT}: open the folder that holds main.cpp, then run Build.`);
-			}
-			return NO_HEX;
-		}
+	async function build({ quiet = false, debug = false }: { quiet?: boolean; debug?: boolean } = {}): Promise<BuildResult> {
+		const folder = await pickFolder(debug ? 'run Debug build' : 'run Build');
+		if (!folder) return NO_HEX;
 
 		const run = runs.start(folder.uri.toString());
 		const started = Date.now();
+		const level = debug ? debugLevel(folder) : undefined;
 		const steps: StepReport[] = [];
-		const output = () => steps.map((step) => step.stderr).join('');
-		const codal = () => steps.filter((step) => step.codal !== null).length;
+		const record = (ok: boolean, error: string | null): BuildRecord => ({
+			ok,
+			error,
+			output: steps.map((step) => step.stderr).join(''),
+			codal: steps.filter((step) => step.codal !== null).length,
+			// The first of the user's compiles, since the recipe gives them all the same flags.
+			optimisation: steps.find((step) => step.source !== null)?.args.find((arg) => arg.startsWith('-O')) ?? null,
+		});
 		// Outside the try, so a compile that finished keeps its errors on screen when writing its hex fails.
 		let found: Found = { placed: [], unplaced: [] };
 		const markFound = () => mark(folder, found.placed);
 		try {
-			const built = await attempt(folder, run, (step) => steps.push(step));
+			const built = await attempt(folder, run, level, (step) => steps.push(step));
 			if (built) found = problemsOf(steps, built.files);
 			const published = await settle(run, folder, built?.outcome ?? null, started, markFound);
 			// Publishing only says this build's work ran: a newer build can start while it writes.
@@ -135,8 +144,8 @@ export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollec
 			if (!built) return NO_HEX; // nothing was built, and the outputs are already invalidated
 
 			const { outcome } = built;
-			last = { ok: succeeded(outcome), output: output(), error: null, codal: codal() };
-			announce(folder, outcome, started, quiet, { error: firstError(found), step: steps.find((step) => step.exitCode !== 0) });
+			last = record(succeeded(outcome), null);
+			announce(folder, outcome, started, quiet, { error: firstError(found), step: steps.find((step) => step.exitCode !== 0), level });
 			return outcome.hex !== null && succeeded(outcome) ? { hex: outcome.hex } : NO_HEX;
 		} catch (error) {
 			const aborted = error instanceof BuildError && error.aborted;
@@ -146,7 +155,7 @@ export function createBuild(compiler: Compiler, markers: vscode.DiagnosticCollec
 			if (!(await settle(run, folder, null, started, markFound)) || !run.owns()) return SUPERSEDED;
 			if (aborted) return NO_HEX;
 
-			last = { ok: false, output: output(), error: message, codal: codal() };
+			last = record(false, message);
 			showLog();
 			notify(vscode.window.showErrorMessage, `${PRODUCT}: build failed. ${message}`);
 			return NO_HEX;
@@ -203,17 +212,23 @@ function marker(markers: vscode.DiagnosticCollection): (folder: vscode.Workspace
 async function write(folder: vscode.WorkspaceFolder, outcome: BuildOutcome, started: number): Promise<void> {
 	const bytes = ENCODER.encode(outcome.hex ?? '');
 	await vscode.workspace.fs.writeFile(vscode.Uri.joinPath(folder.uri, OUTPUTS.hex), bytes);
-	// An older map left beside a new hex would describe a different binary.
-	const map = vscode.Uri.joinPath(folder.uri, OUTPUTS.map);
-	if (outcome.map !== null) await vscode.workspace.fs.writeFile(map, ENCODER.encode(outcome.map));
-	else await remove(map);
+	// An older map or ELF left beside a new hex would describe a different binary.
+	const beside = [
+		[OUTPUTS.map, outcome.map === null ? null : ENCODER.encode(outcome.map)],
+		[OUTPUTS.elf, outcome.elf],
+	] as const;
+	for (const [name, content] of beside) {
+		const uri = vscode.Uri.joinPath(folder.uri, name);
+		if (content !== null) await vscode.workspace.fs.writeFile(uri, content);
+		else await remove(uri);
+	}
 	logGap();
 	log(`Build succeeded in ${took(started)}: ${OUTPUTS.hex} written, ${bytes.byteLength} bytes`);
 }
 
 /** A stale hex beside sources it does not match is the one that gets flashed by mistake. */
 async function invalidate(folder: vscode.WorkspaceFolder): Promise<void> {
-	for (const name of [OUTPUTS.hex, OUTPUTS.map]) await remove(vscode.Uri.joinPath(folder.uri, name));
+	await Promise.all(Object.values(OUTPUTS).map((name) => remove(vscode.Uri.joinPath(folder.uri, name))));
 }
 
 async function remove(uri: vscode.Uri): Promise<void> {
@@ -231,10 +246,10 @@ function announce(
 	outcome: BuildOutcome,
 	started: number,
 	quiet: boolean,
-	{ error, step }: { error: string | null; step: StepReport | undefined }
+	{ error, step, level }: { error: string | null; step: StepReport | undefined; level: Optimisation | undefined }
 ): void {
 	if (succeeded(outcome)) {
-		if (!quiet) notify(vscode.window.showInformationMessage, `${PRODUCT}: ${OUTPUTS.hex} written to ${folder.name} in ${took(started)}.`);
+		if (!quiet) notify(vscode.window.showInformationMessage, `${PRODUCT}: ${OUTPUTS.hex} written to ${folder.name} in ${took(started)}${debugNote(level)}.`);
 		return;
 	}
 	logGap();
